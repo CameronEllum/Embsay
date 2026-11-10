@@ -1,0 +1,169 @@
+symbol_metadata:
+  IEFA:
+    mer: 0.0008
+    dividend_yield: 0.03
+    tax_by_account:
+      non_registered: 0.0025
+      resp: 0.005
+      rrsp: 0.0025
+      tfsa: 0.005
+    divisions:
+      "Europe/Asia (EAFE)": 1
+    updated_at: "2026-01-18"
+  IEMG:
+    mer: 0.0011
+    dividend_yield: 0.027
+    tax_by_account:
+      non_registered: 0.0029
+      resp: 0.0058
+      rrsp: 0.0029
+      tfsa: 0.0058
+    divisions:
+      "Emerging Markets": 1
+    updated_at: "2026-01-18"
+  VAB:
+    mer: 0.0009
+    tax_by_account:
+      non_registered: 0
+      resp: 0
+      rrsp: 0
+      tfsa: 0
+    divisions:
+      "GICs/Bonds": 1
+    updated_at: "2026-01-18"
+  VEQT:
+    mer: 0.0024
+    tax_by_account:
+      non_registered: 0.001
+      resp: 0.002
+      rrsp: 0.002
+      tfsa: 0.002
+    divisions:
+      "Canada": 0.298
+      "Emerging Markets": 0.066
+      "Europe/Asia (EAFE)": 0.187
+      "America (US)": 0.449
+    updated_at: "2026-01-18"
+  ITOT:
+    mer: 0.0003
+    dividend_yield: 0.0132
+    tax_by_account:
+      non_registered: 0
+      resp: 0.002
+      rrsp: 0
+      tfsa: 0.002
+    divisions:
+      "America (US)": 1
+    updated_at: "2026-11-07"
+  VTI:
+    mer: 0.0003
+    dividend_yield: 0.0132
+    tax_by_account:
+      non_registered: 0
+      resp: 0.002
+      rrsp: 0
+      tfsa: 0.002
+    divisions:
+      "America (US)": 1
+    updated_at: "2026-01-18"
+  XAW:
+    mer: 0.0022
+    dividend_yield: 0.0185
+    tax_by_account:
+      non_registered: 0.0031
+      resp: 0.0031
+      rrsp: 0.0031
+      tfsa: 0.0031
+    divisions:
+      "Emerging Markets": 0.1026
+      "Europe/Asia (EAFE)": 0.2519
+      "America (US)": 0.6455
+    updated_at: "2026-01-18"
+  XEC:
+    mer: 0.0027
+    dividend_yield: 0.026
+    tax_by_account:
+      non_registered: 0
+      resp: 0.0031
+      rrsp: 0.0031
+      tfsa: 0.0031
+    divisions:
+      "Emerging Markets": 1
+    updated_at: "2026-01-18"
+  XEF:
+    mer: 0.002
+    dividend_yield: 0.028
+    tax_by_account:
+      non_registered: 0
+      resp: 0.0026
+      rrsp: 0.0026
+      tfsa: 0.0026
+    divisions:
+      "Europe/Asia (EAFE)": 1
+    updated_at: "2026-01-18"
+  XEQT:
+    mer: 0.002
+    tax_by_account:
+      non_registered: 0.001
+      resp: 0.002
+      rrsp: 0.002
+      tfsa: 0.002
+    divisions:
+      "Canada": 0.25686510322709966
+      "Emerging Markets": 0.05001002204850672
+      "Europe/Asia (EAFE)": 0.24193225095209464
+      "America (US)": 0.45119262377229913
+    updated_at: "2026-11-04"
+  XUU:
+    mer: 0.0007
+    dividend_yield: 0.0139
+    tax_by_account:
+      non_registered: 0
+      resp: 0.003
+      rrsp: 0.003
+      tfsa: 0.003
+    divisions:
+      "America (US)": 1
+    updated_at: "2026-01-18"
+  ZAG:
+    mer: 0.0009
+    tax_by_account:
+      non_registered: 0
+      resp: 0
+      rrsp: 0
+      tfsa: 0
+    divisions:
+      "GICs/Bonds": 1
+    updated_at: "2026-01-18"
+  XIC:
+    mer: 0.0006
+    dividend_yield: 0.029
+    tax_by_account:
+      non_registered: 0
+      resp: 0
+      rrsp: 0
+      tfsa: 0
+    divisions:
+      "Canada": 1
+    updated_at: "2026-11-07"
+  ZCN:
+    mer: 0.0006
+    dividend_yield: 0.031
+    tax_by_account:
+      non_registered: 0
+      resp: 0
+      rrsp: 0
+      tfsa: 0
+    divisions:
+      "Canada": 1
+    updated_at: "2026-01-18"
+  ZDB:
+    mer: 0.001
+    tax_by_account:
+      non_registered: 0
+      resp: 0
+      rrsp: 0
+      tfsa: 0
+    divisions:
+      "GICs/Bonds": 1
+    updated_at: "2026-01-18"

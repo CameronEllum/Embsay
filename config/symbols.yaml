@@ -1,0 +1,208 @@
+# Table of Symbols (ETFs, GICs, and Cash Equivalents)
+# Note: Looked-up prices and FX rates are cached in config/price_cache.yaml,
+# and dynamic division ratios (XAW/XEQT) and MER/Tax overrides are cached in config/cache.yaml.
+
+symbols:
+  # --- Fixed Income & Cash ---
+  VAB:
+    name: Vanguard Canadian Aggregate Bond Index ETF
+    exchange: TSE
+    yahoo_ticker: VAB.TO
+    currency: CAD
+    tax_structure: CA_CA
+    default_mer: 0.0009
+    default_divisions: { "GICs/Bonds": 1.0 }
+
+  ZAG:
+    name: BMO Aggregate Bond Index ETF
+    exchange: TSE
+    yahoo_ticker: ZAG.TO
+    currency: CAD
+    tax_structure: CA_CA
+    default_mer: 0.0009
+    default_divisions: { "GICs/Bonds": 1.0 }
+
+  ZDB:
+    name: BMO Discount Bond Index ETF
+    exchange: TSE
+    yahoo_ticker: ZDB.TO
+    currency: CAD
+    tax_structure: CA_CA
+    default_mer: 0.0010
+    default_divisions: { "GICs/Bonds": 1.0 }
+
+  GIC_CAD:
+    name: Guaranteed Investment Certificate (CAD)
+    exchange: CASH
+    currency: CAD
+    tax_structure: CA_CA
+    default_mer: 0.0000
+    fixed_price: 1.00
+    default_divisions: { "GICs/Bonds": 1.0 }
+
+  CASH_CAD:
+    name: Cash / High-Interest Savings (CAD)
+    exchange: CASH
+    currency: CAD
+    tax_structure: CA_CA
+    default_mer: 0.0000
+    fixed_price: 1.00
+    default_divisions: { "GICs/Bonds": 1.0 }
+
+  # --- US Equities ---
+  VTI:
+    name: Vanguard Total Stock Market ETF
+    exchange: NYSE
+    yahoo_ticker: VTI
+    currency: USD
+    tax_structure: US_US
+    default_mer: 0.0003
+    default_divisions: { "America (US)": 1.0 }
+
+  ITOT:
+    name: iShares Core S&P Total U.S. Stock Market ETF
+    exchange: NYSE
+    yahoo_ticker: ITOT
+    currency: USD
+    tax_structure: US_US
+    default_mer: 0.0003
+    default_divisions: { "America (US)": 1.0 }
+
+  XUU:
+    name: iShares Core S&P U.S. Total Market Index ETF
+    exchange: TSE
+    yahoo_ticker: XUU.TO
+    currency: CAD
+    tax_structure: CA_US
+    default_mer: 0.0007
+    default_divisions: { "America (US)": 1.0 }
+
+  # --- Europe/Asia (EAFE) Equities ---
+  IEFA:
+    name: iShares Core MSCI EAFE ETF
+    exchange: NYSE
+    yahoo_ticker: IEFA
+    currency: USD
+    tax_structure: US_INTL
+    default_mer: 0.0008
+    default_divisions: { "Europe/Asia (EAFE)": 1.0 }
+
+  XEF:
+    name: iShares Core MSCI EAFE IMI Index ETF
+    exchange: TSE
+    yahoo_ticker: XEF.TO
+    currency: CAD
+    tax_structure: CA_INTL
+    default_mer: 0.0020
+    default_divisions: { "Europe/Asia (EAFE)": 1.0 }
+
+  # --- Emerging Markets Equities ---
+  IEMG:
+    name: iShares Core MSCI Emerging Markets ETF
+    exchange: NYSE
+    yahoo_ticker: IEMG
+    currency: USD
+    tax_structure: US_INTL
+    default_mer: 0.0011
+    default_divisions: { "Emerging Markets": 1.0 }
+
+  XEC:
+    name: iShares Core MSCI Emerging Markets IMI Index ETF
+    exchange: TSE
+    yahoo_ticker: XEC.TO
+    currency: CAD
+    tax_structure: CA_INTL
+    default_mer: 0.0027
+    default_divisions: { "Emerging Markets": 1.0 }
+
+  # --- Canadian Equities ---
+  ZCN:
+    name: BMO S&P/TSX Capped Composite Index ETF
+    exchange: TSE
+    yahoo_ticker: ZCN.TO
+    currency: CAD
+    tax_structure: CA_CA
+    default_mer: 0.0006
+    default_divisions: { "Canada": 1.0 }
+
+  XIC:
+    name: iShares Core S&P/TSX Capped Composite Index ETF
+    exchange: TSE
+    yahoo_ticker: XIC.TO
+    currency: CAD
+    tax_structure: CA_CA
+    default_mer: 0.0006
+    default_divisions: { "Canada": 1.0 }
+
+  # --- Multi-Region / All-in-One Composite ETFs ---
+  XAW:
+    name: iShares Core MSCI All Country World ex Canada Index ETF
+    exchange: TSE
+    yahoo_ticker: XAW.TO
+    currency: CAD
+    tax_structure: CA_WORLD_EX_CA
+    metadata_recipe: ishares_xaw_weights
+    default_mer: 0.0022
+    default_divisions:
+      "America (US)": 0.6455
+      "Europe/Asia (EAFE)": 0.2519
+      "Emerging Markets": 0.1026
+
+  XEQT:
+    name: iShares Core Equity ETF Portfolio
+    exchange: TSE
+    yahoo_ticker: XEQT.TO
+    currency: CAD
+    tax_structure: CA_ALL_EQUITY
+    metadata_recipe: ishares_xeqt_weights
+    default_mer: 0.0020
+    default_divisions:
+      "Canada": 0.2365
+      "America (US)": 0.4772
+      "Europe/Asia (EAFE)": 0.2405
+      "Emerging Markets": 0.0458
+
+  VEQT:
+    name: Vanguard All-Equity ETF Portfolio
+    exchange: TSE
+    yahoo_ticker: VEQT.TO
+    currency: CAD
+    tax_structure: CA_ALL_EQUITY
+    metadata_recipe: vanguard_all_in_one_weights
+    default_mer: 0.0024
+    default_divisions:
+      "Canada": 0.2980
+      "America (US)": 0.4490
+      "Europe/Asia (EAFE)": 0.1870
+      "Emerging Markets": 0.0660
+
+  VBAL:
+    name: Vanguard Balanced ETF Portfolio (60/40)
+    exchange: TSE
+    yahoo_ticker: VBAL.TO
+    currency: CAD
+    tax_structure: CA_BALANCED
+    metadata_recipe: vanguard_all_in_one_weights
+    default_mer: 0.0024
+    default_divisions:
+      "GICs/Bonds": 0.4000
+      "Canada": 0.1788
+      "America (US)": 0.2694
+      "Europe/Asia (EAFE)": 0.1122
+      "Emerging Markets": 0.0396
+
+  VCIP:
+    name: Vanguard Conservative Income ETF Portfolio (20/80)
+    exchange: TSE
+    yahoo_ticker: VCIP.TO
+    currency: CAD
+    tax_structure: CA_BALANCED
+    metadata_recipe: vanguard_all_in_one_weights
+    default_mer: 0.0024
+    default_divisions:
+      "GICs/Bonds": 0.8000
+      "Canada": 0.0596
+      "America (US)": 0.0898
+      "Europe/Asia (EAFE)": 0.0374
+      "Emerging Markets": 0.0132
+

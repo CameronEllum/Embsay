@@ -1,0 +1,37 @@
+# Example Portfolio: 30% VAB (Bonds) / 70% XEQT (Regional Equities)
+# Balanced two-ticket Couch Potato portfolio decomposing XEQT into underlying regional equity divisions.
+name: "Demo: 30% VAB / 70% XEQT"
+amount_to_buy: 15000.0
+
+strategy:
+  mode: hierarchical
+  categories:
+    "Cash and Bonds": 0.30
+    "Stocks": 0.70
+  category_splits:
+    "Cash and Bonds":
+      "GICs/Bonds": 1.00
+    "Stocks":
+      "America (US)": 0.4512
+      "Canada": 0.2569
+      "Europe/Asia (EAFE)": 0.2419
+      "Emerging Markets": 0.0500
+  notes:
+    - "Hierarchical 30/70 balanced strategy decomposing XEQT into its underlying regional divisions (US, Canada, EAFE, Emerging Markets) alongside Canadian aggregate bonds (VAB)."
+
+holdings:
+  - account: RRSP
+    symbol: VAB
+    shares: 4800
+    rebalance_divisions: ["GICs/Bonds"]
+    note: "Fixed income anchor (30% target)"
+
+  - account: RRSP
+    symbol: XEQT
+    shares: 4200
+    rebalance_divisions: ["America (US)", "Canada", "Europe/Asia (EAFE)", "Emerging Markets"]
+
+  - account: TFSA
+    symbol: XEQT
+    shares: 3100
+    note: "Tax-free equity growth (70% target)"

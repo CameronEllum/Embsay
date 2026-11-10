@@ -1,0 +1,79 @@
+name: 'Demo: $1M Plaid Strategy (70/30 After-Tax)'
+amount_to_buy: 0
+after_tax_allocation: true
+rrsp_withdrawal_tax_rate: 0.35
+strategy:
+  mode: hierarchical
+  categories:
+    Cash and Bonds: 0.3
+    Stocks: 0.7
+  category_splits:
+    Cash and Bonds:
+      GICs/Bonds: 1
+    Stocks:
+      America (US): 0.45
+      Canada: 0.25
+      Emerging Markets: 0.08
+      Europe/Asia (EAFE): 0.22
+  notes:
+    - 'Scenario A: Full Plaid Strategy with $1,000,000 Pre-Tax ($825,000 After-Tax value across RRSP, TFSA, and Margin).'
+    - 'Target: 70% Equity / 30% Bond After-Tax Allocation with 35% expected RRSP withdrawal tax rate.'
+    - 'Optimal Asset Location: 100% bonds in Margin (ZDB), Canadian equity in TFSA (ZCN/XIC), US and EM equities in RRSP (ITOT/VTI, IEMG) to eliminate US FWT, and EAFE (XEF/IEFA) split across accounts to recover foreign withholding tax credits.'
+    - Pre-tax portfolio is 75.2% equity / 24.8% bonds ($1,000,000 pre-tax) to achieve exactly 70.0% equity / 30.0% bonds ($825,000 after-tax).
+holdings:
+  - account: TFSA
+    account_type: tfsa
+    symbol: ZCN
+    shares: 3010.32
+    rebalance_divisions:
+      - Canada
+    proposed_shares: -4
+    note: 0% FWT, 0% Canadian tax; fills entire Canadian target first (ZCN/XIC)
+  - account: TFSA
+    account_type: tfsa
+    symbol: XEF
+    shares: 111.47
+    rebalance_divisions:
+      - Europe/Asia (EAFE)
+    proposed_shares: -1
+    note: Uses remaining TFSA room on direct Intl stocks (no Level 2 FWT)
+  - account: RRSP
+    account_type: rrsp
+    symbol: ITOT
+    shares: 1758.9
+    rebalance_divisions:
+      - America (US)
+    proposed_shares: 3
+    note: Grossed up (/ 0.65). 0% IRS FWT + 0.03% MER (ITOT/VTI)
+  - account: RRSP
+    account_type: rrsp
+    symbol: IEMG
+    shares: 697.55
+    rebalance_divisions:
+      - Emerging Markets
+    proposed_shares: -1
+    note: Grossed up (/ 0.65). Cuts MER to 0.09% & avoids Level 2 FWT (IEMG/VWO)
+  - account: RRSP
+    account_type: rrsp
+    symbol: IEFA
+    shares: 217.62
+    rebalance_divisions:
+      - Europe/Asia (EAFE)
+    proposed_shares: -1
+    note: Uses final RRSP dollars at 0.07% MER (0% Level 2 FWT)
+  - account: Margin
+    account_type: non_registered
+    symbol: XEF
+    shares: 2031.31
+    rebalance_divisions:
+      - Europe/Asia (EAFE)
+    proposed_shares: -1
+    note: Recovers Level 1 overseas FWT via T3 Box 34 Foreign Tax Credit
+  - account: Margin
+    account_type: non_registered
+    symbol: ZDB
+    shares: 16390.73
+    rebalance_divisions:
+      - GICs/Bonds
+    proposed_shares: -21
+    note: 100% of bonds sit in Margin so RRSP/TFSA shelter 100% equities!

@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Embsay — Portfolio Visualizer</title>
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem('embsay_theme') || 'system';
+        var eff = t;
+        if (t === 'system') {
+          eff = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', eff);
+      } catch (e) {}
+    })();
+  </script>
+  <base href="/" />
+  <link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="%23dc2626"/><path d="M 19.11 4.41 A 12 12 0 0 1 24.49 24.49" stroke="%23ffffff" stroke-width="2.2" stroke-linecap="round" fill="none"/><path d="M 22 26.39 A 12 12 0 0 1 4.41 19.11" stroke="%23fca5a5" stroke-width="2.2" stroke-linecap="round" fill="none"/><path d="M 4 16 A 12 12 0 0 1 16 4" stroke="rgba(255,255,255,0.5)" stroke-width="2.2" stroke-linecap="round" fill="none"/><path d="M 16.44 26.25 L 16.22 22.07 A 0.46 0.46 0 0 1 16.75 21.6 L 20.91 22.33 L 20.35 20.78 A 0.31 0.31 0 0 1 20.45 20.43 L 25.0 16.74 L 23.97 16.26 A 0.31 0.31 0 0 1 23.81 15.88 L 24.71 13.11 L 22.09 13.67 A 0.31 0.31 0 0 1 21.73 13.49 L 21.23 12.29 L 19.18 14.49 A 0.31 0.31 0 0 1 18.64 14.21 L 19.63 9.12 L 18.05 10.04 A 0.31 0.31 0 0 1 17.61 9.9 L 16.0 6.75 L 14.39 9.9 A 0.31 0.31 0 0 1 13.95 10.04 L 12.37 9.12 L 13.36 14.21 A 0.31 0.31 0 0 1 12.82 14.49 L 10.77 12.29 L 10.27 13.49 A 0.31 0.31 0 0 1 9.91 13.67 L 7.29 13.11 L 8.19 15.88 A 0.31 0.31 0 0 1 8.03 16.26 L 7.0 16.74 L 11.55 20.43 A 0.31 0.31 0 0 1 11.65 20.78 L 11.09 22.33 L 15.25 21.6 A 0.46 0.46 0 0 1 15.78 22.07 L 15.56 26.25 Z" fill="%23ffffff"/></svg>' />
+  <link rel="stylesheet" href="/styles.css?v=3" />
+</head>
+<body>
+
+<!-- TOP HEADER: Global Navigation & Brand -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand-area">
+      <div class="app-logo">
+        <span class="logo-mark" title="Embsay — Canadian Portfolio Rebalancer">
+          <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="32" height="32" rx="8" fill="url(#embsayLogoGrad)"/>
+            <defs>
+              <linearGradient id="embsayLogoGrad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#dc2626"/>
+                <stop offset="100%" stop-color="#991b1b"/>
+              </linearGradient>
+            </defs>
+            <!-- Asset Allocation / Portfolio Segments Ring -->
+            <path d="M 19.11 4.41 A 12 12 0 0 1 24.49 24.49" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+            <path d="M 22 26.39 A 12 12 0 0 1 4.41 19.11" stroke="#fca5a5" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+            <path d="M 4 16 A 12 12 0 0 1 16 4" stroke="rgba(255,255,255,0.45)" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+            <!-- Canadian Maple Leaf Core (Official National Flag of Canada Geometry) -->
+            <path d="M 16.44 26.25 L 16.22 22.07 A 0.46 0.46 0 0 1 16.75 21.6 L 20.91 22.33 L 20.35 20.78 A 0.31 0.31 0 0 1 20.45 20.43 L 25.0 16.74 L 23.97 16.26 A 0.31 0.31 0 0 1 23.81 15.88 L 24.71 13.11 L 22.09 13.67 A 0.31 0.31 0 0 1 21.73 13.49 L 21.23 12.29 L 19.18 14.49 A 0.31 0.31 0 0 1 18.64 14.21 L 19.63 9.12 L 18.05 10.04 A 0.31 0.31 0 0 1 17.61 9.9 L 16.0 6.75 L 14.39 9.9 A 0.31 0.31 0 0 1 13.95 10.04 L 12.37 9.12 L 13.36 14.21 A 0.31 0.31 0 0 1 12.82 14.49 L 10.77 12.29 L 10.27 13.49 A 0.31 0.31 0 0 1 9.91 13.67 L 7.29 13.11 L 8.19 15.88 A 0.31 0.31 0 0 1 8.03 16.26 L 7.0 16.74 L 11.55 20.43 A 0.31 0.31 0 0 1 11.65 20.78 L 11.09 22.33 L 15.25 21.6 A 0.46 0.46 0 0 1 15.78 22.07 L 15.56 26.25 Z" fill="#ffffff"/>
+          </svg>
+        </span>
+        <span>Embsay</span>
+      </div>
+
+      <!-- Top-Level Main Views -->
+      <nav class="nav-links main-views">
+        <button class="main-view-btn" data-view="port-mgmt" onclick="openPortfolioSelection(true)">
+          <span class="nav-icon">📁</span>
+          <span data-i18n="nav_portfolios">Portfolios</span>
+        </button>
+        <button class="main-view-btn" data-view="securities" onclick="switchMainView('securities', true)">
+          <span class="nav-icon">📊</span>
+          <span data-i18n="nav_securities_tax">ETFs & Tax</span>
+        </button>
+        <button class="main-view-btn" data-view="config" onclick="switchMainView('config', true)">
+          <span class="nav-icon">⚙️</span>
+          <span data-i18n="nav_config">Config</span>
+        </button>
+      </nav>
+    </div>
+
+    <div class="controls-area">
+      <!-- Language Selector (en-CA / fr-CA Québécois) -->
+      <select id="langSelect" class="select-clean" onchange="changeLanguage(this.value)" title="Language / Langue">
+        <option value="en-CA">🇨🇦 English (CA)</option>
+        <option value="fr-CA">⚜️ Français (QC)</option>
+      </select>
+
+      <!-- Theme Switcher -->
+      <button class="btn" onclick="toggleTheme()" id="themeBtn" data-i18n-title="btn_theme_title" title="Theme mode (click to cycle System / Dark / Light)">
+        🖥 System
+      </button>
+
+      <!-- Quit Button -->
+      <button class="btn btn-ghost" onclick="quitApplication()" id="quitBtn" style="color:var(--red);" data-i18n-title="btn_quit_title" title="Quit and close the Embsay application">
+        ⏻ <span data-i18n="btn_quit">Quit</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- PORTFOLIO CONTEXT BAR (Only visible when Portfolios main view is active) -->
+<nav id="portfolioContextBar" class="portfolio-context-bar">
+  <div class="portfolio-context-inner">
+    <!-- Left: Portfolio Name + Sub-Tabs -->
+    <div class="portfolio-bar-left">
+      <span class="active-portfolio-title" id="activePortfolioName"></span>
+      <div class="port-subnav-divider"></div>
+      <div id="portfolioSubNav" class="portfolio-subnav">
+        <button class="port-subtab active" data-subtab="account" onclick="switchPortfolioSubTab('account')" data-i18n="nav_by_account">By Account</button>
+        <button class="port-subtab" data-subtab="division" onclick="switchPortfolioSubTab('division')" data-i18n="nav_by_division">By Division</button>
+        <button class="port-subtab" data-subtab="classification" onclick="switchPortfolioSubTab('classification')" data-i18n="nav_by_classification">By Classification</button>
+        <button class="port-subtab" data-subtab="strategy" onclick="switchPortfolioSubTab('strategy')" data-i18n="nav_strategy_targets">Strategy Targets</button>
+      </div>
+    </div>
+
+    <!-- Right: Switches & Actions -->
+    <div class="portfolio-bar-right">
+      <!-- Optional Rebalance Simulator Toggle -->
+      <div id="rebalanceToggle" class="rebalance-switch" onclick="toggleRebalanceMode()">
+        <span class="switch-dot"></span>
+        <span data-i18n="rebalance_simulator">Rebalance Simulator</span>
+      </div>
+
+      <!-- Optional After-Tax RRSP Allocation Toggle -->
+      <div id="afterTaxToggle" class="rebalance-switch" onclick="toggleAfterTaxMode()">
+        <span class="switch-dot"></span>
+        <span data-i18n="after_tax_toggle">After-Tax RRSP</span>
+      </div>
+
+      <!-- Backup Portfolio Button -->
+      <button class="btn btn-sm" onclick="backupCurrentPortfolio()" id="btnBackupPortfolio" data-i18n-title="btn_backup_portfolio_title" title="Save a date-and-time postfixed backup copy of this portfolio">
+        💾 <span data-i18n="btn_backup">Backup</span>
+      </button>
+
+      <!-- Refresh Prices Button -->
+      <button class="btn btn-sm" onclick="refreshPrices()" id="btnRefreshPrices" data-i18n-title="btn_refresh_prices_title" data-i18n="btn_refresh_prices" title="Fetch latest market prices and Bank of Canada USD/CAD rate">
+        ↻ Prices & FX
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- OPTIONAL REBALANCE SIMULATOR BAR (Hidden unless Rebalance Simulator is toggled ON) -->
+<div id="rebalanceBanner" class="rebalance-drawer hidden">
+  <div class="rebalance-drawer-inner">
+    <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+      <div>
+        <span style="font-weight:700;color:var(--primary);" data-i18n="rebal_banner_title">⚖️ Rebalance Simulator Active</span>
+        <span class="text-muted" style="margin-left:6px;" data-i18n="rebal_banner_desc">Simulate deposits, withdrawals, and target share trades without cluttering your daily view.</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label style="font-weight:600;font-size:12.5px;" id="rebalCashLabel" data-i18n="rebal_cash_label">Cash to Invest / Withdraw ($ CAD):</label>
+        <input type="text" inputmode="decimal" id="rebalCashInput" class="input-clean" style="width:110px;font-weight:700;text-align:right;"
+               onchange="updateAmountToBuy(this.value)" />
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="applyCalculatedTrades(true)" data-i18n="rebal_btn_whole" title="Populate simulated trades with whole integer shares recommended by the rebalancing model">
+        Populate Recommended Shares (Whole)
+      </button>
+      <button class="btn" onclick="applyCalculatedTrades(false)" data-i18n="rebal_btn_exact" title="Populate simulated trades with exact fractional share amounts">
+        Exact Shares
+      </button>
+      <button class="btn" onclick="commitProposedTrades()" data-i18n="rebal_btn_commit" title="Permanently write and save these simulated trades into your portfolio holdings">
+        ✓ Commit Executed Trades to Holdings
+      </button>
+    </div>
+    <div id="rebalanceWarnings" style="width:100%;padding-left:2px;"></div>
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<main class="container">
+
+  <!-- TAB: BY DIVISION (VISUALIZER + REBALANCING + DIVISION HOLDINGS) -->
+  <div id="tab-division" class="tab-pane">
+    <!-- Visual Allocation Bar & Category/Division Summary -->
+    <div class="card alloc-section">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title" data-i18n="alloc_vs_target_title">Portfolio Allocation vs. Strategy Target</h2>
+          <div class="text-muted" style="font-size:12.5px;" data-i18n="alloc_vs_target_sub">Visualizing actual division weights against your target strategy</div>
+        </div>
+        <div id="categoryPillsSummary" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+      </div>
+
+      <div id="stackedBarsContainer"></div>
+      <div class="alloc-legend" id="allocLegend"></div>
+
+      <div style="margin-top:20px;overflow-x:auto;">
+        <table class="table-clean" id="divisionSummaryTable" data-sort-table="divisionSummary"></table>
+      </div>
+    </div>
+
+    <!-- Holdings Breakdown by Division Header -->
+    <div class="section-header" style="margin-top:28px;">
+      <div>
+        <h2 class="section-title" id="holdingsGroupTitle" data-i18n="holdings_by_division">Holdings by Division</h2>
+        <div class="text-muted" style="font-size:12.5px;" id="holdingsGroupSubtitle" data-i18n="holdings_by_division_sub"></div>
+      </div>
+    </div>
+    <div id="divisionCardsContainer"></div>
+
+    <!-- Hero KPI Cards (Portfolio Vitals) -->
+    <div class="kpi-grid" id="kpiGridDivision" style="margin-top:24px;"></div>
+  </div>
+
+  <!-- TAB: BY ACCOUNT (CARDS + ACCOUNT SUMMARY AT BOTTOM) -->
+  <div id="tab-account" class="tab-pane hidden">
+    <!-- Account Header -->
+    <div class="section-header">
+      <div>
+        <h2 class="section-title" data-i18n="holdings_by_account">Holdings by Account</h2>
+        <div class="text-muted" style="font-size:12.5px;" data-i18n="holdings_by_account_sub">Positions grouped by individual brokerage account.</div>
+      </div>
+      <div id="accountHeaderActions" style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-sm" onclick="openNewAccountModal()" data-i18n="btn_new_account" title="Create a new brokerage or registered account in this portfolio">+ New Account</button>
+        <button class="btn btn-sm btn-primary" onclick="openAddPositionModal()" data-i18n="btn_add_position" title="Add a new holding position to an account in this portfolio">+ Add Position</button>
+      </div>
+    </div>
+
+    <!-- Account Holdings Cards -->
+    <div id="accountCardsContainer" style="margin-top:20px;"></div>
+
+    <!-- Account Summary Table Card at Bottom -->
+    <div class="card" style="margin-top:28px;">
+      <div class="section-header">
+        <h3 class="section-title" data-i18n="holdings_by_account">Holdings by Account</h3>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="table-clean" id="accountSummaryTable" data-sort-table="accountSummary"></table>
+      </div>
+    </div>
+
+    <!-- Hero KPI Cards (Portfolio Vitals) -->
+    <div class="kpi-grid" id="kpiGridAccount" style="margin-top:24px;"></div>
+  </div>
+
+  <!-- TAB: BY CLASSIFICATION (CARDS + TAX LOCATION & CLASSIFICATION SUMMARY AT BOTTOM) -->
+  <div id="tab-classification" class="tab-pane hidden">
+    <!-- Classification Header -->
+    <div class="section-header">
+      <div>
+        <h2 class="section-title" data-i18n="holdings_by_classification">Holdings by Classification</h2>
+        <div class="text-muted" style="font-size:12.5px;" data-i18n="holdings_by_classification_sub">Positions grouped by account classification (RRSP, TFSA, Non-Registered, RESP).</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div id="classificationStrategyToggle" class="rebalance-switch" onclick="toggleClassificationStrategyMode()" title="Divide classification tables by strategy division targets">
+          <span class="switch-dot"></span>
+          <span data-i18n="toggle_divide_by_strategy">Divide by Strategy Target</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Classification Holdings Cards -->
+    <div id="classificationCardsContainer" style="margin-top:20px;"></div>
+
+    <!-- Tax Location Breakdown & Classification Summary Tables at Bottom -->
+    <div class="grid-2" style="margin-top:28px;">
+      <div class="card">
+        <div class="section-header">
+          <h3 class="section-title" data-i18n="tax_location_title">Tax Location (Registered vs. Taxable Category Split)</h3>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="table-clean" id="regVsUnregTable"></table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-header">
+          <h3 class="section-title" data-i18n="holdings_by_classification">Holdings by Classification</h3>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="table-clean" id="classificationSummaryTable" data-sort-table="classificationSummary"></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hero KPI Cards (Portfolio Vitals) -->
+    <div class="kpi-grid" id="kpiGridClassification" style="margin-top:24px;"></div>
+  </div>
+
+  <!-- TAB: STRATEGY TARGETS (Under Portfolio) -->
+  <div id="tab-strategy" class="tab-pane hidden">
+    <div class="card" id="strategyEditorCard"></div>
+  </div>
+
+  <!-- VIEW 3 / TAB 4: SECURITIES & TAX METADATA -->
+  <div id="tab-securities" class="tab-pane hidden">
+    <!-- Add ETF Form -->
+    <div class="card" style="margin-bottom:20px;">
+      <div class="section-header">
+        <div>
+          <h3 class="section-title" data-i18n="add_security_title">Add New ETF</h3>
+          <div class="text-muted" style="font-size:12.5px;" data-i18n="add_security_sub">Enter an ETF ticker symbol and click Lookup (or press Enter) to auto-fill details, then add to symbols.yaml</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div>
+          <div class="kpi-label" style="margin-bottom:4px;" data-i18n="lbl_symbol">Symbol</div>
+          <div style="display:flex;gap:6px;">
+            <input type="text" id="newSymID" class="input-clean" style="width:90px;text-transform:uppercase;" placeholder="e.g. VFV"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault();lookupSymbolDetails();}"
+                   onblur="if(this.value && !document.getElementById('newSymName').value) lookupSymbolDetails()" />
+            <button class="btn" id="btnLookupSym" onclick="lookupSymbolDetails()" data-i18n-title="btn_lookup_title" data-i18n="btn_lookup" title="Look up name, exchange, currency, and division from symbol">
+              🔍 Lookup
+            </button>
+          </div>
+        </div>
+        <div>
+          <div class="kpi-label" style="margin-bottom:4px;" data-i18n="lbl_fund_name">Fund Name</div>
+          <input type="text" id="newSymName" class="input-clean" style="width:230px;" data-i18n-placeholder="ph_fund_name" placeholder="Auto-filled or custom fund name" />
+        </div>
+        <div>
+          <div class="kpi-label" style="margin-bottom:4px;" data-i18n="lbl_exchange">Exchange</div>
+          <input type="text" id="newSymExch" class="input-clean" style="width:75px;" value="TSX" />
+        </div>
+        <div>
+          <div class="kpi-label" style="margin-bottom:4px;" data-i18n="lbl_yahoo_ticker">Yahoo Ticker</div>
+          <input type="text" id="newSymYahoo" class="input-clean" style="width:95px;" placeholder="VFV.TO" />
+        </div>
+        <div>
+          <div class="kpi-label" style="margin-bottom:4px;" data-i18n="lbl_currency">Currency</div>
+          <select id="newSymCurr" class="select-clean">
+            <option value="CAD">CAD</option>
+            <option value="USD">USD</option>
+          </select>
+        </div>
+        <div>
+          <div class="kpi-label" style="margin-bottom:4px;" data-i18n="lbl_mer_pct">MER (%)</div>
+          <input type="text" inputmode="decimal" id="newSymMER" class="input-clean" style="width:68px;text-align:right;" value="0.00" />
+        </div>
+        <div>
+          <div class="kpi-label" style="margin-bottom:4px;" data-i18n="lbl_default_div">Default Division</div>
+          <select id="newSymDiv" class="select-clean"></select>
+        </div>
+        <button class="btn btn-primary" onclick="addSymbol()" data-i18n="btn_add_security">+ Add ETF</button>
+      </div>
+    </div>
+
+    <!-- Master ETF Catalog (Pure Metadata - No Live Prices) -->
+    <div class="card" style="margin-bottom:20px;">
+      <div class="section-header">
+        <div>
+          <h3 class="section-title" data-i18n="sec_catalog_title">Master ETF & Metadata Catalog</h3>
+          <div class="text-muted" style="font-size:12.5px;" data-i18n-html="sec_catalog_sub">Shared ETF definitions, MERs, tax structures, and division breakdowns (config/symbols.yaml & config/cache.yaml)</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn" onclick="refreshMetadata()" id="btnRefreshMeta" data-i18n="btn_refresh_meta">↻ Refresh Composite ETF Ratios (iShares / Vanguard)</button>
+          <button class="btn btn-primary" onclick="saveCacheEdits()" data-i18n="btn_save_cache">Save Changes to Cache</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="table-clean" id="symbolsCacheTable" data-sort-table="symbolsCache"></table>
+      </div>
+    </div>
+
+    <!-- Foreign Withholding Tax (FWT) Intelligence Engine -->
+    <div class="card" style="margin-bottom:20px;" id="fwtIntelligenceCard">
+      <div class="section-header">
+        <div>
+          <h3 class="section-title" data-i18n="fwt_title">Foreign Withholding Tax (FWT) Intelligence Engine</h3>
+          <div class="text-muted" style="font-size:12.5px;" data-i18n="fwt_sub">Cross-border tax rules, Level 1 & Level 2 mechanics, Canada–US treaty exemptions, and account drag calculations</div>
+        </div>
+      </div>
+
+      <!-- 4 Core Rules Summary Cards -->
+      <div class="grid-2" style="margin-bottom:20px;gap:14px;">
+        <div style="background:var(--bg-subtle);padding:14px;border-radius:8px;border-left:3px solid var(--primary);">
+          <div style="font-weight:700;font-size:13.5px;margin-bottom:4px;" data-i18n="fwt_rule1_title">1. Level 1: Direct Foreign Tax</div>
+          <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.45;" data-i18n="fwt_rule1_desc">Withholding applied directly by the foreign source country (e.g. US IRS withholds 15% on US dividends; European and Asian nations withhold ~8–12%).</div>
+        </div>
+        <div style="background:var(--bg-subtle);padding:14px;border-radius:8px;border-left:3px solid var(--primary);">
+          <div style="font-weight:700;font-size:13.5px;margin-bottom:4px;" data-i18n="fwt_rule2_title">2. Level 2: Fund Wrapper Tax</div>
+          <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.45;" data-i18n="fwt_rule2_desc">A second 15% US withholding tax triggered when a Canadian ETF holds a US-listed ETF wrapper (e.g. XAW holding ITOT/IEFA) before distributing to Canadians.</div>
+        </div>
+        <div style="background:var(--bg-subtle);padding:14px;border-radius:8px;border-left:3px solid var(--green);">
+          <div style="font-weight:700;font-size:13.5px;margin-bottom:4px;" data-i18n="fwt_rule3_title">3. Canada–US Tax Treaty Exemption (RRSP Only)</div>
+          <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.45;" data-i18n="fwt_rule3_desc">US-listed ETFs holding US stocks directly (e.g. VTI) held in an RRSP/RRIF are 100% exempt from US withholding. Canadian-listed ETFs (XUU, XEQT, VEQT) cannot pass this through to RRSPs.</div>
+        </div>
+        <div style="background:var(--bg-subtle);padding:14px;border-radius:8px;border-left:3px solid var(--amber);">
+          <div style="font-weight:700;font-size:13.5px;margin-bottom:4px;" data-i18n="fwt_rule4_title">4. Foreign Tax Credit (FTC) in Taxable Accounts</div>
+          <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.45;" data-i18n="fwt_rule4_desc">In non-registered accounts, foreign tax reported on T3/T5 slips is recoverable as a tax credit on line 40500 of your T1. In TFSA and RESP accounts, foreign withholding is permanently unrecoverable.</div>
+        </div>
+      </div>
+
+      <!-- Tax Structure Rules Table -->
+      <div class="kpi-label" style="margin-bottom:8px;" data-i18n="fwt_rules_matrix_title">Tax Structure Matrix (config/data_sources.yaml)</div>
+      <div style="overflow-x:auto;margin-bottom:20px;">
+        <table class="table-clean" id="taxStructureRulesTable"></table>
+      </div>
+
+      <!-- Interactive ETF FWT Calculator / Inspector -->
+      <div class="card" style="background:var(--bg-subtle);border:1px solid var(--border);padding:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
+          <div>
+            <div style="font-weight:700;font-size:13.5px;" data-i18n="fwt_inspector_title">🔍 ETF Tax Drag Inspector</div>
+            <div class="text-muted" style="font-size:12px;" data-i18n="fwt_inspector_sub">Select any ETF to view its exact Level 1/2 withholding calculation and account drag breakdown</div>
+          </div>
+          <select id="fwtInspectorSelect" class="select-clean" onchange="renderFWTInspector(this.value)"></select>
+        </div>
+        <div id="fwtInspectorContent"></div>
+      </div>
+    </div>
+
+    <!-- Data Source Recipes -->
+    <div id="recipesContainer"></div>
+  </div>
+
+  <!-- VIEW 2: PORTFOLIO MANAGEMENT -->
+  <div id="tab-port-mgmt" class="tab-pane hidden"></div>
+
+  <!-- VIEW 3 / TAB 5: CONFIG -->
+  <div id="tab-config" class="tab-pane hidden">
+    <!-- Application Settings Card -->
+    <div class="card" style="margin-bottom:20px;">
+      <div class="section-header" style="margin-bottom:10px;">
+        <div>
+          <h3 class="section-title" data-i18n="app_settings_title">Application Settings (config/config.yaml)</h3>
+          <div class="text-muted" style="font-size:12.5px;" data-i18n="app_settings_sub">Configure language, automatic price lookup interval, and theme mode</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;">
+        <div>
+          <div class="kpi-label" style="margin-bottom:4px;" data-i18n="lbl_language">Language / Langue</div>
+          <select id="cfgLanguage" class="select-clean" onchange="saveAppConfigFromTab()">
+            <option value="en-CA">🇨🇦 English (Canada)</option>
+            <option value="fr-CA">⚜️ Français (Québec)</option>
+          </select>
+        </div>
+        <div>
+          <div class="kpi-label" style="margin-bottom:4px;" data-i18n="lbl_lookup_interval">Price Lookup Interval</div>
+          <input type="text" id="cfgLookupInterval" class="input-clean" style="width:120px;" placeholder="e.g. 1h, 30m, 0s" onchange="saveAppConfigFromTab()" />
+        </div>
+        <div>
+          <div class="kpi-label" style="margin-bottom:4px;" data-i18n="lbl_theme_mode">Theme Mode</div>
+          <select id="cfgThemeMode" class="select-clean" onchange="saveAppConfigFromTab()">
+            <option value="system" data-i18n="opt_theme_system">🖥 Follow System Default</option>
+            <option value="dark" data-i18n="opt_theme_dark">🌙 Dark</option>
+            <option value="light" data-i18n="opt_theme_light">☀️ Light</option>
+          </select>
+        </div>
+        <div>
+          <div class="kpi-label" style="margin-bottom:4px;" data-i18n="lbl_drift_threshold">Drift Warning Rule (%)</div>
+          <input type="text" inputmode="decimal" id="cfgDriftThreshold" class="input-clean" style="width:105px;text-align:right;" placeholder="1.0" onchange="saveAppConfigFromTab()" />
+        </div>
+        <div>
+          <div class="kpi-label" style="margin-bottom:4px;" data-i18n="lbl_idle_timeout">Idle Auto-Close (Hours)</div>
+          <input type="text" inputmode="decimal" id="cfgIdleTimeout" class="input-clean" style="width:105px;text-align:right;" placeholder="1.0" onchange="saveAppConfigFromTab()" />
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;padding-bottom:6px;">
+          <input type="checkbox" id="cfgLookupOnLoad" onchange="saveAppConfigFromTab()" />
+          <span data-i18n="lbl_lookup_on_load">Lookup prices on every load</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- NEW ACCOUNT MODAL -->
+<div id="newAccountModal" class="modal-backdrop hidden">
+  <div class="modal-card" style="max-width:440px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <h3 class="section-title" style="margin:0;">Add New Account</h3>
+      <button class="btn btn-ghost" onclick="closeNewAccountModal()" style="font-size:16px;padding:2px 8px;" title="Close dialog (Esc)">✕</button>
+    </div>
+    <p class="text-muted" style="margin-top:0;font-size:13px;">
+      Create a new brokerage or registered account within this portfolio.
+    </p>
+    <div style="margin-bottom:14px;">
+      <label class="kpi-label" style="display:block;margin-bottom:4px;">Account Name</label>
+      <input type="text" id="modalNewAccountName" class="input-clean" style="width:100%;" placeholder="e.g. TFSA, RRSP, Margin" onkeydown="if(event.key==='Enter') submitNewAccountModal()" />
+    </div>
+    <div style="margin-bottom:18px;">
+      <label class="kpi-label" style="display:block;margin-bottom:4px;">Classification / Account Type</label>
+      <select id="modalNewAccountType" class="select-clean" style="width:100%;">
+        <option value="rrsp">RRSP (Registered Retirement)</option>
+        <option value="tfsa">TFSA (Tax-Free Savings)</option>
+        <option value="non_registered">Non-Registered / Margin</option>
+        <option value="resp">RESP (Education Savings)</option>
+      </select>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button class="btn" onclick="closeNewAccountModal()" title="Cancel and close dialog">Cancel</button>
+      <button class="btn btn-primary" onclick="submitNewAccountModal()" title="Create this account in the portfolio">Create Account</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD POSITION MODAL WITH FUZZY AUTO-LOOKUP -->
+<div id="addPositionModal" class="modal-backdrop hidden">
+  <div class="modal-card" style="max-width:520px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <h3 class="section-title" style="margin:0;">Add Position</h3>
+      <button class="btn btn-ghost" onclick="closeAddPositionModal()" style="font-size:16px;padding:2px 8px;" title="Close dialog (Esc)">✕</button>
+    </div>
+    <p class="text-muted" style="margin-top:0;margin-bottom:14px;font-size:13px;">
+      Search any ticker or ETF name for instant auto-lookup, then enter shares.
+    </p>
+
+    <!-- Account Selection -->
+    <div style="margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <label class="kpi-label">Account</label>
+        <a href="javascript:void(0)" onclick="openNewAccountModal(true)" style="font-size:11.5px;color:var(--primary);text-decoration:none;">+ New Account</a>
+      </div>
+      <select id="modalAddPosAccountSelect" class="select-clean" style="width:100%;"></select>
+    </div>
+
+    <!-- Symbol with Fuzzy Auto-Lookup Dropdown -->
+    <div style="margin-bottom:14px;position:relative;">
+      <label class="kpi-label" style="display:block;margin-bottom:4px;">Symbol / ETF Ticker</label>
+      <div style="position:relative;">
+        <input type="text" id="modalAddPosSymbolInput" class="input-clean" style="width:100%;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;" placeholder="Type ticker or name (e.g. ZCN, VTI, BMO, XEQT)..." autocomplete="off" oninput="onModalSymbolInput(this.value)" onkeydown="onModalSymbolKeyDown(event)" />
+        <span id="modalAddPosSpinner" class="hidden" style="position:absolute;right:10px;top:8px;font-size:12px;color:var(--text-muted);">⏳</span>
+      </div>
+      <!-- Floating Autocomplete Suggestions -->
+      <div id="modalAddPosSuggestions" class="hidden" style="position:absolute;left:0;right:0;top:100%;z-index:1000;background:var(--bg-surface);border:1px solid var(--border);border-radius:6px;max-height:220px;overflow-y:auto;box-shadow:0 6px 18px rgba(0,0,0,0.18);margin-top:4px;"></div>
+    </div>
+
+    <!-- Security Details Preview Card -->
+    <div id="modalAddPosDetailsCard" style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:6px;padding:10px 14px;margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div>
+          <div style="font-weight:700;font-size:14px;" id="modalPreviewSymTitle">—</div>
+          <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;" id="modalPreviewSymName">Type a symbol above to search or look up details</div>
+        </div>
+        <div style="text-align:right;white-space:nowrap;">
+          <div style="font-weight:700;font-size:15px;" id="modalPreviewPrice">—</div>
+          <div style="font-size:11px;color:var(--text-muted);" id="modalPreviewCurrency"></div>
+        </div>
+      </div>
+      <div id="modalPreviewDivisions" style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap;"></div>
+    </div>
+
+    <!-- Shares Input & Live Calculation -->
+    <div style="display:flex;gap:12px;margin-bottom:14px;">
+      <div style="flex:1;">
+        <label class="kpi-label" style="display:block;margin-bottom:4px;">Shares / Principal</label>
+        <input type="text" inputmode="decimal" id="modalAddPosSharesInput" class="input-clean" style="width:100%;text-align:right;font-size:16px;font-weight:600;" placeholder="0" oninput="updateModalEstimatedValue()" onkeydown="if(event.key==='Enter') submitAddPositionModal()" />
+      </div>
+      <div style="flex:1;">
+        <label class="kpi-label" style="display:block;margin-bottom:4px;">Estimated Value (CAD)</label>
+        <div id="modalAddPosEstValue" style="padding:8px 12px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:6px;font-size:16px;font-weight:700;text-align:right;color:var(--text);height:38px;box-sizing:border-box;">$0.00</div>
+      </div>
+    </div>
+
+    <!-- Optional Note -->
+    <div style="margin-bottom:18px;">
+      <label class="kpi-label" style="display:block;margin-bottom:4px;">Note (Optional)</label>
+      <input type="text" id="modalAddPosNoteInput" class="input-clean" style="width:100%;" placeholder="e.g. DRIP, GIC maturity, etc." onkeydown="if(event.key==='Enter') submitAddPositionModal()" />
+    </div>
+
+    <!-- Action Buttons -->
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button type="button" class="btn" onclick="closeAddPositionModal()" title="Cancel and close dialog">Cancel</button>
+      <button type="button" class="btn btn-primary" id="modalAddPosSubmitBtn" onclick="submitAddPositionModal()" title="Add or update this position in the portfolio">+ Add Position</button>
+    </div>
+  </div>
+</div>
+
+<!-- CREATE NEW PORTFOLIO MODAL -->
+<div id="newPortfolioModal" class="modal-backdrop hidden">
+  <div class="modal-card">
+    <h3 class="section-title" style="margin-bottom:6px;" data-i18n="modal_new_port_title">Create New Portfolio</h3>
+    <p class="text-muted" style="margin-top:0;font-size:13px;" data-i18n="modal_new_port_sub_clean">
+      Configure your portfolio name, storage directory, and starting strategy.
+    </p>
+    <div style="margin-bottom:14px;">
+      <label class="kpi-label" style="display:block;margin-bottom:4px;" data-i18n="lbl_portfolio_name">Portfolio Name</label>
+      <input type="text" id="modalNewPortName" class="input-clean" style="width:100%;" data-i18n-placeholder="ph_portfolio_name" placeholder="e.g. Kid 2 RESP, Corporate, TFSA" />
+    </div>
+    <div style="margin-bottom:14px;">
+      <label class="kpi-label" style="display:block;margin-bottom:4px;" data-i18n="lbl_save_directory">Save Directory / Folder</label>
+      <div style="display:flex;gap:6px;">
+        <select id="modalSaveDirSelect" class="select-clean" style="flex:1;" onchange="handleModalDirChange()"></select>
+        <button type="button" id="modalBrowseBtn" class="btn hidden" onclick="browseFolderForModal()" data-i18n="btn_browse_folder">📁 Browse...</button>
+      </div>
+      <input type="text" id="modalCustomDirInput" class="input-clean hidden" style="width:100%;margin-top:6px;" placeholder="e.g. C:/Users/Documents/Portfolios" />
+    </div>
+    <div style="margin-bottom:18px;">
+      <label class="kpi-label" style="display:block;margin-bottom:4px;" data-i18n="lbl_copy_strat">Copy Initial Strategy From</label>
+      <select id="modalCopyStratFrom" class="select-clean" style="width:100%;"></select>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button class="btn" onclick="closeNewPortfolioModal()" data-i18n="btn_cancel">Cancel</button>
+      <button class="btn btn-primary" onclick="createNewPortfolio()" data-i18n="btn_create_portfolio">Create Portfolio</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- APPLICATION SHUTDOWN OVERLAY -->
+<div id="shutdownOverlay" class="modal-backdrop hidden" style="z-index:99999;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);align-items:center;justify-content:center;">
+  <div class="modal-card" style="max-width:480px;text-align:center;padding:36px 28px;">
+    <div style="font-size:48px;margin-bottom:16px;">⏻</div>
+    <h2 style="margin:0 0 10px 0;" data-i18n="app_stopped_title">Embsay has shut down</h2>
+    <p class="text-muted" style="margin-bottom:24px;line-height:1.5;" data-i18n="app_stopped_desc">
+      The local server is no longer running. You may safely close this browser tab.
+    </p>
+    <button class="btn btn-primary" onclick="window.close()" data-i18n="btn_close_tab">Close Tab</button>
+  </div>
+</div>
+
+  <!-- Modular Application Scripts -->
+  <script src="/js/app.js?v=5"></script>
+  <script src="/js/portfolio.js?v=5"></script>
+  <script src="/js/securities.js?v=5"></script>
+  <script src="/js/port_mgmt.js?v=5"></script>
+  <script src="/js/config.js?v=5"></script>
+  <script>
+    window.addEventListener("DOMContentLoaded", init);
+  </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+# Compiled binaries
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Personal portfolios and spreadsheets (never commit)
+portfolios/
+!portfolios/.gitkeep
+*.ods
+
+# Local user configuration and runtime backups
+config/config.yaml
+*_backup_*.yaml
+*_backup_*.yml
+
+*.exe~
+experiments/

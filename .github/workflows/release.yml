@@ -1,0 +1,78 @@
+name: Release Binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build & Publish Release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          # Windows x86_64
+          - goos: windows
+            goarch: amd64
+            artifact_name: embsay-windows-amd64.zip
+            binary_name: embsay.exe
+
+          # macOS Apple Silicon (M1/M2/M3/M4)
+          - goos: darwin
+            goarch: arm64
+            artifact_name: embsay-darwin-arm64.tar.gz
+            binary_name: embsay
+
+          # macOS Intel
+          - goos: darwin
+            goarch: amd64
+            artifact_name: embsay-darwin-amd64.tar.gz
+            binary_name: embsay
+
+          # Linux x86_64
+          - goos: linux
+            goarch: amd64
+            artifact_name: embsay-linux-amd64.tar.gz
+            binary_name: embsay
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Build Binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          mkdir -p dist
+          go build -ldflags="-s -w" -o dist/${{ matrix.binary_name }} .
+
+      - name: Bundle Archive (Windows)
+        if: matrix.goos == 'windows'
+        run: |
+          cd dist
+          zip -r ../${{ matrix.artifact_name }} ${{ matrix.binary_name }}
+          cd ..
+          zip -r ${{ matrix.artifact_name }} config/config.example.yaml examples/ README.md
+
+      - name: Bundle Archive (Unix)
+        if: matrix.goos != 'windows'
+        run: |
+          tar -czvf ${{ matrix.artifact_name }} -C dist ${{ matrix.binary_name }} config/config.example.yaml examples/ README.md
+
+      - name: Upload Artifact to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.artifact_name }}
+          generate_release_notes: true

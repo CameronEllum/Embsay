@@ -1,0 +1,11 @@
+# Default application settings template
+# Copy to config/config.yaml or let Embsay auto-generate it.
+language: en-CA
+theme_mode: system
+lookup_interval: 1h
+lookup_on_load: true
+portfolio_paths:
+  - portfolios
+  - examples
+drift_threshold: 0.01
+idle_timeout_hours: 1

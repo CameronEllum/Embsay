@@ -1,0 +1,51 @@
+# Categories, Divisions, and Account Classifications
+# Categories and Divisions are uniquely identified by their name.
+
+categories:
+  - name: Cash and Bonds
+    order: 1
+  - name: Stocks
+    order: 2
+
+divisions:
+  - name: GICs/Bonds
+    category: Cash and Bonds
+    order: 1
+  - name: America (US)
+    category: Stocks
+    order: 2
+  - name: Europe/Asia (EAFE)
+    category: Stocks
+    order: 3
+  - name: Emerging Markets
+    category: Stocks
+    order: 4
+  - name: Canada
+    category: Stocks
+    order: 5
+
+# Account types map specific brokerage account names to tax treatment rules
+account_types:
+  rrsp:
+    name: RRSP (Registered Retirement)
+    registered: true
+    aliases: ["RRSP"]
+  tfsa:
+    name: TFSA (Tax-Free Savings)
+    registered: true
+    aliases: ["TFSA"]
+  non_registered:
+    name: Non-Registered / Unregistered
+    registered: false
+    aliases: ["Non-registered", "Unregistered", "Margin"]
+  resp:
+    name: RESP (Education Savings)
+    registered: true
+    aliases: ["RESP"]
+  fhsa:
+    name: FHSA (First Home Savings)
+    registered: true
+    aliases: ["FHSA"]
+
+# Custom Portfolio Groups (Combine any portfolios into a single unified view)
+portfolio_groups: []

@@ -1,0 +1,33 @@
+# Example Portfolio: 30% VAB (Fixed Income) / 70% VEQT (Equities)
+# Classic two-fund Couch Potato portfolio for an investor who doesn't care about regional allocation (trusts VEQT).
+name: "Demo: 30% VAB / 70% VEQT"
+amount_to_buy: 0.0
+
+strategy:
+  mode: flat
+  divisions:
+    "Fixed Income": 0.30
+    "Equities": 0.70
+  notes:
+    - "Classic two-fund Couch Potato portfolio for an investor who doesn't care about regional allocation (trusts VEQT to manage global equity weights): 30% VAB for fixed income and 70% VEQT for equities."
+
+holdings:
+  - account: RRSP
+    symbol: VAB
+    shares: 4800
+    division: "Fixed Income"
+    rebalance_divisions: ["Fixed Income"]
+    note: "Fixed income anchor (30% target)"
+
+  - account: RRSP
+    symbol: VEQT
+    shares: 3100
+    division: "Equities"
+    rebalance_divisions: ["Equities"]
+
+  - account: TFSA
+    symbol: VEQT
+    shares: 2300
+    division: "Equities"
+    rebalance_divisions: ["Equities"]
+    note: "Tax-free equity growth (70% target)"

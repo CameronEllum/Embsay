@@ -1,0 +1,159 @@
+# Data Sources and Declarative Recipes (Mappings)
+# Users can add or modify price providers, FX sources, ETF weight scrapers, tax rules,
+# or CSV importers here (or drop extra .yaml files in plugins/) without recompiling.
+
+price_sources:
+  - id: yahoo_v8
+    name: Yahoo Finance Chart API (v8)
+    enabled: true
+    url_template: "https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?interval=1d&range=1d"
+    headers:
+      User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    json_mapping:
+      price: "chart.result.0.meta.regularMarketPrice"
+      currency: "chart.result.0.meta.currency"
+
+  - id: twelvedata
+    name: Twelve Data REST API (Optional API Key)
+    enabled: false
+    url_template: "https://api.twelvedata.com/price?symbol={ticker}&apikey=${TWELVEDATA_API_KEY}"
+    json_mapping:
+      price: "price"
+
+fx_sources:
+  - id: bank_of_canada
+    name: Bank of Canada Valet API (Official USD/CAD)
+    enabled: true
+    pair: "USD_CAD"
+    url_template: "https://www.bankofcanada.ca/valet/observations/FXUSDCAD/json?recent=1"
+    json_mapping:
+      rate: "observations.0.FXUSDCAD.v"
+      date: "observations.0.d"
+
+  - id: yahoo_fx
+    name: Yahoo Finance FX Fallback
+    enabled: true
+    pair: "USD_CAD"
+    url_template: "https://query1.finance.yahoo.com/v8/finance/chart/USDCAD=X?interval=1d&range=1d"
+    headers:
+      User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    json_mapping:
+      rate: "chart.result.0.meta.regularMarketPrice"
+
+# Recipes for looking up underlying division ratios (e.g. XAW, XEQT) from BlackRock iShares CSV
+# or Vanguard Canada product pages (server-side rendered HTML tables, no JavaScript needed)
+metadata_recipes:
+  ishares_xaw_weights:
+    name: BlackRock iShares Canada XAW Holdings CSV
+    type: csv_holdings
+    url: "https://www.blackrock.com/ca/investors/en/products/272108/ishares-core-sp-us-total-market-index-etf/1464253357814.ajax?fileType=csv&fileName=XAW_holdings&dataType=fund"
+    header_match: "Ticker,"
+    ticker_column: "Ticker"
+    weight_column: "Weight (%)"
+    underlying_to_division:
+      IVV: "America (US)"
+      ITOT: "America (US)"
+      XTOT: "America (US)"
+      IJH: "America (US)"
+      IJR: "America (US)"
+      XEF: "Europe/Asia (EAFE)"
+      IEFA: "Europe/Asia (EAFE)"
+      IEMG: "Emerging Markets"
+      XEC: "Emerging Markets"
+
+  ishares_xeqt_weights:
+    name: BlackRock iShares Canada XEQT Holdings CSV
+    type: csv_holdings
+    url: "https://www.blackrock.com/ca/investors/en/products/309480/ishares-core-equity-etf-portfolio/1464253357814.ajax?fileType=csv&fileName=XEQT_holdings&dataType=fund"
+    header_match: "Ticker,"
+    ticker_column: "Ticker"
+    weight_column: "Weight (%)"
+    underlying_to_division:
+      ITOT: "America (US)"
+      XTOT: "America (US)"
+      IVV: "America (US)"
+      XIC: "Canada"
+      XEF: "Europe/Asia (EAFE)"
+      IEMG: "Emerging Markets"
+      XEC: "Emerging Markets"
+
+  # One recipe covers all Vanguard Canada all-in-one ETFs (VEQT, VBAL, VCIP, VGRO):
+  # {symbol} in url_template is replaced with the symbol ID (e.g. VEQT) at refresh time.
+  # The product page is server-side rendered, so the "Allocation to underlying
+  # Vanguard funds" table (fund name -> % of fund) is plain HTML in the response.
+  # Note: bonds sleeve included via the aggregate bond ETF rows, which is what makes
+  # this work for balanced funds (VBAL/VCIP), unlike the equity-only market allocation table.
+  vanguard_all_in_one_weights:
+    name: Vanguard Canada Product Page (Underlying Funds)
+    type: html_table
+    url_template: "https://www.vanguard.ca/en/advisor/products/products-group/etfs/{symbol}"
+    table_match: "Allocation to underlying Vanguard funds"
+    key_column_index: 0
+    weight_column_index: 1
+    underlying_to_division:
+      "Morningstar U.S. Total Market Index ETF": "America (US)"
+      "FTSE Canada All Cap Index ETF": "Canada"
+      "FTSE Developed All Cap ex North America Index ETF": "Europe/Asia (EAFE)"
+      "FTSE Emerging Markets All Cap Index ETF": "Emerging Markets"
+      "Canadian Aggregate Bond Index ETF": "GICs/Bonds"
+      "Global ex-U.S. Aggregate Bond Index ETF (CAD-hedged)": "GICs/Bonds"
+      "U.S. Aggregate Bond Index ETF (CAD-hedged)": "GICs/Bonds"
+
+# Foreign Withholding Tax (FWT) Calculation Rules by Tax Structure & Account Type
+tax_structure_rules:
+  CA_CA:
+    description: "Canadian-listed holding Canadian securities (e.g. ZCN, VAB, ZAG, ZDB) - No foreign withholding tax across any account"
+    us_tier1_rate: 0.0
+    intl_tier1_rate: 0.0
+    account_multipliers: { rrsp: 0.0, tfsa: 0.0, non_registered: 0.0, resp: 0.0 }
+  US_US:
+    description: "US-listed ETF holding US stocks (e.g. VTI, VOO) - 15% US FWT exempt in RRSP under Canada-US treaty, recoverable via FTC in taxable, unrecoverable in TFSA/RESP"
+    us_tier1_rate: 0.15
+    account_multipliers: { rrsp: 0.0, tfsa: 1.0, non_registered: 0.0, resp: 1.0 }
+  US_DOMESTIC:
+    description: "US-listed individual stocks - 15% US FWT exempt in RRSP under treaty, recoverable via FTC in taxable, unrecoverable in TFSA/RESP"
+    us_tier1_rate: 0.15
+    account_multipliers: { rrsp: 0.0, tfsa: 1.0, non_registered: 0.0, resp: 1.0 }
+  CA_US:
+    description: "Canadian-listed ETF wrapping US stocks/ETFs (e.g. XUU, VUN) - 15% US FWT unrecoverable in RRSP and TFSA (fund is Canadian trust); recoverable in taxable via FTC"
+    us_tier1_rate: 0.15
+    account_multipliers: { rrsp: 1.0, tfsa: 1.0, non_registered: 0.0, resp: 1.0 }
+  US_INTL:
+    description: "US-listed ETF holding International/Emerging stocks (e.g. IEFA, IEMG) - Level 1 Intl FWT (~8.5%) + Level 2 US wrapper FWT (15%). Level 2 exempt in RRSP under treaty"
+    intl_tier1_rate: 0.085
+    us_tier2_rate: 0.15
+    account_multipliers: { rrsp: 1.0, tfsa: 2.0, non_registered: 1.0, resp: 2.0 }
+  CA_INTL:
+    description: "Canadian-listed ETF holding International/Emerging stocks directly (e.g. XEF, XEC, VIU) - Level 1 Intl FWT (~8.5%) applies directly; no Level 2 US wrapper tax"
+    intl_tier1_rate: 0.085
+    account_multipliers: { rrsp: 1.0, tfsa: 1.0, non_registered: 0.0, resp: 1.0 }
+  CA_ALL_EQUITY:
+    description: "Canadian-listed all-in-one equity ETF (e.g. XEQT, VEQT) - Blended FWT across US (~45% sleeve) and International (~30% sleeve). US portion recoverable in taxable via FTC"
+    us_tier1_rate: 0.15
+    intl_tier1_rate: 0.085
+    account_multipliers: { rrsp: 1.0, tfsa: 1.0, non_registered: 0.5, resp: 1.0 }
+  CA_BALANCED:
+    description: "Canadian-listed balanced ETF (e.g. VBAL, VCIP) - Fixed income sleeve (40-80%) incurs 0% FWT; equity sleeves incur blended FWT proportional to stock weight"
+    us_tier1_rate: 0.15
+    intl_tier1_rate: 0.085
+    account_multipliers: { rrsp: 0.6, tfsa: 0.6, non_registered: 0.3, resp: 0.6 }
+  CA_WORLD_EX_CA:
+    description: "Canadian-listed global ex-Canada ETF (e.g. XAW) - US sleeve incurs Level 2 wrapper tax; International/Emerging sleeves incur Level 1 FWT"
+    us_tier1_rate: 0.15
+    intl_tier1_rate: 0.085
+    account_multipliers: { rrsp: 1.0, tfsa: 1.0, non_registered: 0.4, resp: 1.0 }
+
+# Declarative CSV Importers for Brokerage Position Exports
+csv_importers:
+  questrade:
+    name: Questrade Positions CSV
+    columns:
+      account: "Account"
+      symbol: "Symbol"
+      shares: "Quantity"
+  wealthsimple:
+    name: Wealthsimple Positions CSV
+    columns:
+      account: "Account Name"
+      symbol: "Symbol"
+      shares: "Quantity"
