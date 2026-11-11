@@ -35,6 +35,7 @@ It eliminates the spreadsheets and manual math required to coordinate Canadian a
 * [Quick Start Guide](#quick-start-guide)
   * [Running Embsay on Windows](#running-embsay-on-windows)
   * [Running on macOS or Linux](#running-on-macos-or-linux)
+  * [Build from Source](#build-from-source)
 * [Privacy by Design](#privacy-by-design)
 * [Disclaimer](#disclaimer)
 * [License](#license)
@@ -143,6 +144,10 @@ Most portfolio trackers treat \$100,000 inside an RRSP identically to \$100,000 
 ## Quick Start Guide
 
 ### Running Embsay on Windows
+
+> [!NOTE]
+> **Windows SmartScreen Warning**: Pre-built release binaries are not code-signed with an Authenticode certificate, so Windows Defender SmartScreen may display *"Windows protected your PC"* the first time you launch `embsay.exe`. Click **More info** → **Run anyway** to proceed, or [build from source](#build-from-source) directly with Go.
+
 1. Download the Windows archive from the [latest release](https://github.com/CameronEllum/Embsay/releases) and extract it.
 2. Double-click `embsay.exe`.
 3. Your default web browser will automatically open to `http://localhost:8080`.
@@ -160,6 +165,20 @@ Most portfolio trackers treat \$100,000 inside an RRSP identically to \$100,000 
    ./embsay
    ```
 3. Open `http://localhost:8080` in your web browser.
+
+### Build from Source
+
+Embsay is written in pure Go with zero C dependencies or Node build steps—all web assets and default YAML templates are compiled directly into a single standalone binary.
+
+1. Install [Go](https://go.dev/dl/) (1.25 or newer).
+2. Clone the repository and build the binary:
+   ```bash
+   git clone https://github.com/CameronEllum/Embsay.git
+   cd Embsay
+   go test ./...
+   go build -o embsay.exe .   # Windows (use `-o embsay` on macOS/Linux)
+   ```
+3. Launch `./embsay.exe` (or `./embsay` on macOS/Linux) from the repository root or copy the compiled binary into any empty folder (default configs and starter examples are created automatically on first run).
 
 ---
 
