@@ -368,6 +368,8 @@
       btn_backup: 'Backup',
       btn_backup_portfolio_title: 'Save a date-and-time postfixed YAML backup of this portfolio',
       toast_backup_created: 'Backup saved: {file}',
+      btn_report_issue: 'Report Issue',
+      btn_report_issue_title: 'File a bug report or feature request on GitHub',
       btn_quit: 'Quit',
       btn_quit_title: 'Quit and close the Embsay application',
       confirm_quit: 'Are you sure you want to quit Embsay?',
@@ -723,6 +725,8 @@
       btn_backup: 'Sauvegarder',
       btn_backup_portfolio_title: 'Enregistrer une copie de sauvegarde YAML horodatée de ce portefeuille',
       toast_backup_created: 'Sauvegarde enregistrée : {file}',
+      btn_report_issue: 'Signaler un bogue',
+      btn_report_issue_title: 'Créer un ticket ou signaler un problème sur GitHub',
       btn_quit: 'Quitter',
       btn_quit_title: 'Quitter et fermer l’application Embsay',
       confirm_quit: 'Êtes-vous certain de vouloir quitter Embsay ?',
@@ -1907,6 +1911,40 @@
   ['mousedown', 'keydown', 'scroll', 'touchstart'].forEach(evt => {
     window.addEventListener(evt, notifyUserActivity, { passive: true });
   });
+
+  // --- Report GitHub Issue ---
+  function openReportIssue() {
+    const os = (appState && appState.runtime_os) ? `${appState.runtime_os}/${appState.runtime_arch || ''}` : (navigator.platform || 'unknown');
+    const goVer = (appState && appState.go_version) ? appState.go_version : 'unknown';
+    const lang = currentLang || 'en-CA';
+    const theme = (appState && appState.config && appState.config.theme_mode) || 'system';
+    const viewInfo = currentMainView === 'portfolio'
+      ? `portfolio (${currentPortfolioSubTab || 'account'})`
+      : currentMainView;
+
+    const body = [
+      '### Describe the Issue / Feature Request',
+      '<!-- Clear description of what happened or what you would like to see -->',
+      '',
+      '',
+      '### Steps to Reproduce (if applicable)',
+      '1. ',
+      '2. ',
+      '',
+      '### Environment',
+      `- OS: ${os}`,
+      `- Runtime: ${goVer}`,
+      `- Active View: ${viewInfo}`,
+      `- Language: ${lang}`,
+      `- Theme: ${theme}`,
+      '',
+      '> **Privacy Note:** Please avoid pasting personal portfolio YAML files, account names, or balances.'
+    ].join('\n');
+
+    const url = `https://github.com/CameronEllum/Embsay/issues/new?body=${encodeURIComponent(body)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+  window.openReportIssue = openReportIssue;
 
   // --- Quit Application ---
   async function quitApplication() {

@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -111,6 +112,9 @@ type AppState struct {
 	Symbols     model.SymbolsConfig     `json:"symbols"`
 	DataSources model.DataSourcesConfig `json:"data_sources"`
 	Cache       model.CacheConfig       `json:"cache"`
+	RuntimeOS   string                  `json:"runtime_os"`
+	RuntimeArch string                  `json:"runtime_arch"`
+	GoVersion   string                  `json:"go_version"`
 }
 
 type PortfolioMeta struct {
@@ -169,6 +173,9 @@ func (s *Service) GetAppState() AppState {
 		Symbols:     s.store.Symbols(),
 		DataSources: s.store.DataSources(),
 		Cache:       s.store.Cache(),
+		RuntimeOS:   runtime.GOOS,
+		RuntimeArch: runtime.GOARCH,
+		GoVersion:   runtime.Version(),
 	}
 }
 
