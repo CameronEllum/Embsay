@@ -157,6 +157,14 @@
 
 <!-- MAIN CONTENT -->
 <main class="container">
+  <div id="dataWarningsBanner" class="card hidden" style="margin-bottom:14px;border-left:4px solid var(--amber);background:var(--amber-soft);padding:12px 16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <div id="dataWarningsText" style="font-size:13px;line-height:1.5;color:var(--amber);font-weight:500;"></div>
+      <button id="btnRefreshPortData" class="btn btn-primary" onclick="refreshCurrentPortfolioData()" data-i18n="btn_refresh_etf_data">
+        ↻ Refresh ETF Data
+      </button>
+    </div>
+  </div>
 
   <!-- TAB: BY DIVISION (VISUALIZER + REBALANCING + DIVISION HOLDINGS) -->
   <div id="tab-division" class="tab-pane">
@@ -330,8 +338,9 @@
           <h3 class="section-title" data-i18n="sec_catalog_title">Master ETF & Metadata Catalog</h3>
           <div class="text-muted" style="font-size:12.5px;" data-i18n-html="sec_catalog_sub">Shared ETF definitions, MERs, tax structures, and division breakdowns (config/symbols.yaml & config/cache.yaml)</div>
         </div>
-        <div style="display:flex;gap:8px;">
-          <button class="btn" onclick="refreshMetadata()" id="btnRefreshMeta" data-i18n="btn_refresh_meta">↻ Refresh Composite ETF Ratios (iShares / Vanguard)</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn" style="color:var(--red);border-color:var(--red);" onclick="resetAllSymbols()" id="btnResetSymbols" data-i18n="btn_reset_symbols" title="Delete all symbol definitions, cached prices, and ETF metadata (backups saved first)">🗑️ Reset All Symbols</button>
+          <button class="btn" onclick="refreshMetadata()" id="btnRefreshMeta" data-i18n="btn_refresh_meta">↻ Refresh Composite ETF Ratios</button>
           <button class="btn btn-primary" onclick="saveCacheEdits()" data-i18n="btn_save_cache">Save Changes to Cache</button>
         </div>
       </div>
@@ -582,10 +591,9 @@
   <div class="modal-card" style="max-width:480px;text-align:center;padding:36px 28px;">
     <div style="font-size:48px;margin-bottom:16px;">⏻</div>
     <h2 style="margin:0 0 10px 0;" data-i18n="app_stopped_title">Embsay has shut down</h2>
-    <p class="text-muted" style="margin-bottom:24px;line-height:1.5;" data-i18n="app_stopped_desc">
+    <p id="shutdownDesc" class="text-muted" style="margin-bottom:0;line-height:1.5;" data-i18n="app_stopped_desc">
       The local server is no longer running. You may safely close this browser tab.
     </p>
-    <button class="btn btn-primary" onclick="window.close()" data-i18n="btn_close_tab">Close Tab</button>
   </div>
 </div>
 

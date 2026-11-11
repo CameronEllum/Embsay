@@ -1,0 +1,42 @@
+name: 'Demo: 30% Bonds (ZAG/ZDB) / 70% ZEQT'
+amount_to_buy: 0
+rrsp_withdrawal_tax_rate: 0.3
+strategy:
+  mode: flat
+  divisions:
+    Equities: 0.7
+    Fixed Income: 0.3
+  notes:
+    - 'Flat 30/70 portfolio (~$78,000 CAD) spanning RRSP, TFSA, and taxable Margin: $14,000 of tax-efficient discount bonds (ZDB) in Margin paired with ZAG in RRSP to hit 30% Fixed Income, and ZEQT across RRSP and TFSA for 70% Equities.'
+holdings:
+  - account: Margin
+    account_type: non_registered
+    symbol: ZDB
+    shares: 930
+    division: Fixed Income
+    rebalance_divisions:
+      - Fixed Income
+    note: Tax-efficient discount bonds in Margin (~$14k)
+  - account: RRSP
+    account_type: rrsp
+    symbol: ZAG
+    shares: 694
+    division: Fixed Income
+    rebalance_divisions:
+      - Fixed Income
+    note: Remainder of 30% Fixed Income target in RRSP (~$9.4k)
+  - account: RRSP
+    account_type: rrsp
+    symbol: ZEQT
+    shares: 645
+    division: Equities
+    rebalance_divisions:
+      - Equities
+  - account: TFSA
+    account_type: tfsa
+    symbol: ZEQT
+    shares: 1705
+    division: Equities
+    rebalance_divisions:
+      - Equities
+    note: Tax-free equity growth in TFSA (70% Equities target across RRSP + TFSA)

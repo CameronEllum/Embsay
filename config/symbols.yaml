@@ -206,3 +206,18 @@ symbols:
       "Europe/Asia (EAFE)": 0.0374
       "Emerging Markets": 0.0132
 
+  ZEQT:
+    asset_type: etf
+    name: BMO All-Equity ETF
+    exchange: TSX
+    yahoo_ticker: ZEQT.TO
+    currency: CAD
+    tax_structure: CA_ALL_EQUITY
+    metadata_recipe: bmo_all_in_one_weights
+    default_mer: 0.0018
+    default_divisions:
+      "America (US)": 0.4963
+      "Canada": 0.2533
+      "Europe/Asia (EAFE)": 0.1648
+      "Emerging Markets": 0.0856
+

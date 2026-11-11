@@ -171,3 +171,53 @@ func TestParseHoldingsHTMLTableForDivisionsNoMatch(t *testing.T) {
 		t.Fatal("expected error for missing table_match, got nil")
 	}
 }
+
+func TestParseHoldingsHTMLTableForBMOZEQT(t *testing.T) {
+	sampleBMOStockAnalysisHTML := `<html><head><title>TSX:ZEQT Holdings List - BMO All-Equity ETF</title></head><body>
+<table id="main-table">
+  <thead><tr><th>No.</th><th>Symbol</th><th>Name</th><th>% Weight</th><th>Shares</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td><a href="/quote/tsx/ZSP/">TSX:ZSP</a></td><td>BMO S&amp;P 500 Index ETF</td><td>45.91%</td><td>4,737,480</td></tr>
+    <tr><td>2</td><td><a href="/quote/tsx/ZCN/">TSX:ZCN</a></td><td>BMO S&amp;P/TSX Capped Composite Index ETF</td><td>25.33%</td><td>6,252,126</td></tr>
+    <tr><td>3</td><td><a href="/quote/tsx/ZEA/">TSX:ZEA</a></td><td>BMO MSCI EAFE Index ETF</td><td>16.48%</td><td>6,305,095</td></tr>
+    <tr><td>4</td><td><a href="/quote/tsx/ZEM/">TSX:ZEM</a></td><td>BMO MSCI Emerging Markets Index ETF</td><td>8.56%</td><td>3,343,449</td></tr>
+    <tr><td>5</td><td><a href="/quote/tsx/ZMID/">TSX:ZMID</a></td><td>BMO S&amp;P US Mid Cap Index ETF</td><td>2.49%</td><td>534,494</td></tr>
+    <tr><td>6</td><td><a href="/quote/tsx/ZSML/">TSX:ZSML</a></td><td>BMO S&amp;P US Small Cap Index ETF</td><td>1.23%</td><td>280,256</td></tr>
+    <tr><td>7</td><td>n/a</td><td>Cash</td><td>-0.01%</td><td>1</td></tr>
+  </tbody>
+</table>
+</body></html>`
+
+	recipe := model.MetadataRecipe{
+		Name:              "BMO All-in-One ETFs (StockAnalysis Holdings Table)",
+		Type:              "html_table",
+		URLTemplate:       "https://stockanalysis.com/quote/tsx/{symbol}/holdings/",
+		TableMatch:        "Holdings",
+		KeyColumnIndex:    1,
+		WeightColumnIndex: 3,
+		UnderlyingToDivision: map[string]string{
+			"TSX:ZSP":  "America (US)",
+			"TSX:ZMID": "America (US)",
+			"TSX:ZSML": "America (US)",
+			"TSX:ZCN":  "Canada",
+			"TSX:ZEA":  "Europe/Asia (EAFE)",
+			"TSX:ZEM":  "Emerging Markets",
+		},
+	}
+
+	ratios, err := datasource.ParseHoldingsHTMLTableForDivisions(sampleBMOStockAnalysisHTML, recipe)
+	if err != nil {
+		t.Fatalf("ParseHoldingsHTMLTableForDivisions(BMO ZEQT) failed: %v", err)
+	}
+	expected := map[string]float64{
+		"America (US)":       0.4963,
+		"Canada":             0.2533,
+		"Europe/Asia (EAFE)": 0.1648,
+		"Emerging Markets":   0.0856,
+	}
+	for div, want := range expected {
+		if math.Abs(ratios[div]-want) > 0.001 {
+			t.Errorf("ratios[%q] = %.4f, want %.4f", div, ratios[div], want)
+		}
+	}
+}

@@ -847,6 +847,7 @@ func (s *Service) Evaluate(portfolioID string, filterAccount string) (model.Port
 		GrossProposedBuyTotalCAD:    grossProposedBuyTotalCAD,
 		EstimatedRRSPDeferredTaxCAD: grossCurrentTotalCAD - currentTotalCAD,
 		RebalanceWarnings:           rebalanceWarnings,
+		DataWarnings:                checkMissingETFData(filteredHoldings, symCfg, cacheCfg, dsCfg),
 		Categories:                  evaluatedCategories,
 		Divisions:                   evaluatedDivisions,
 		AccountSummaries:            accountSummaries,
@@ -1243,13 +1244,18 @@ func (s *Service) RefreshPricesAndFX() (RefreshReport, error) {
 	return report, nil
 }
 
-// RefreshMetadataRecipes runs configured metadata recipes (e.g. BlackRock iShares CSV holdings
-// for XAW, XEQT; Vanguard Canada product-page tables for VEQT, VBAL, VCIP) and updates
-// division ratios in config/cache.yaml.
+// RefreshMetadataRecipes runs configured metadata recipes (e.g. BlackRock iShares CSV holdings,
+// Vanguard Canada product-page tables, BMO ETF holdings tables) and updates division ratios
+// in config/cache.yaml (and attaches inferred recipe keys to config/symbols.yaml if missing).
 func (s *Service) RefreshMetadataRecipes() (RefreshReport, error) {
 	dsCfg := s.store.DataSources()
 	symCfg := s.store.Symbols()
 	cacheCfg := s.store.Cache()
+
+	symMap := make(map[string]model.SymbolDef, len(symCfg.Symbols))
+	for k, v := range symCfg.Symbols {
+		symMap[k] = v
+	}
 
 	metaMap := make(map[string]model.CachedMetadata, len(cacheCfg.SymbolMetadata))
 	for k, v := range cacheCfg.SymbolMetadata {
@@ -1259,24 +1265,54 @@ func (s *Service) RefreshMetadataRecipes() (RefreshReport, error) {
 	report := RefreshReport{
 		UpdatedMetadata: make(map[string]map[string]float64),
 	}
+	symbolsChanged := false
 
-	for symID, symDef := range symCfg.Symbols {
-		if symDef.MetadataRecipe == "" {
+	for symID, symDef := range symMap {
+		recipeKey := symDef.MetadataRecipe
+		if recipeKey == "" {
+			recipeKey = inferMetadataRecipe(symID, datasource.SymbolLookupResult{}, dsCfg)
+			if recipeKey != "" {
+				symDef.MetadataRecipe = recipeKey
+				symMap[symID] = symDef
+				symbolsChanged = true
+			}
+		}
+		if recipeKey == "" {
 			continue
 		}
-		recipe, ok := dsCfg.MetadataRecipes[symDef.MetadataRecipe]
+		recipe, ok := dsCfg.MetadataRecipes[recipeKey]
 		if !ok {
-			report.Warnings = append(report.Warnings, fmt.Sprintf("%s: recipe %q not found", symID, symDef.MetadataRecipe))
+			report.Warnings = append(report.Warnings, fmt.Sprintf("%s: recipe %q not found", symID, recipeKey))
 			continue
 		}
 		ratios, err := s.fetcher.FetchDivisionRatios(symID, recipe)
 		if err != nil {
-			report.Warnings = append(report.Warnings, fmt.Sprintf("%s (%s): %v", symID, symDef.MetadataRecipe, err))
+			report.Warnings = append(report.Warnings, fmt.Sprintf("%s (%s): %v", symID, recipeKey, err))
 			continue
 		}
 		existing := metaMap[symID]
 		if existing.MER == 0 {
 			existing.MER = symDef.DefaultMER
+		}
+		if (existing.MER == 0 || existing.DividendYield == 0) && symDef.FixedPrice <= 0 && !strings.EqualFold(symDef.AssetType, "stock") {
+			if prof, pErr := s.fetcher.FetchETFProfile(symID, symDef.YahooTicker, symDef.Exchange, symDef.Currency); pErr == nil {
+				if prof.MER > 0 && existing.MER == 0 {
+					existing.MER = prof.MER
+					if symDef.DefaultMER == 0 {
+						symDef.DefaultMER = prof.MER
+						symMap[symID] = symDef
+						symbolsChanged = true
+					}
+				}
+				if prof.DividendYield > 0 {
+					existing.DividendYield = prof.DividendYield
+					if len(existing.TaxByAccount) == 0 {
+						if rule, hasRule := dsCfg.TaxStructureRules[symDef.TaxStructure]; hasRule {
+							existing.TaxByAccount = computeTaxByAccount(rule, prof.DividendYield)
+						}
+					}
+				}
+			}
 		}
 		existing.Divisions = ratios
 		existing.UpdatedAt = time.Now().Format("2006-01-02")
@@ -1284,6 +1320,12 @@ func (s *Service) RefreshMetadataRecipes() (RefreshReport, error) {
 		report.UpdatedMetadata[symID] = ratios
 	}
 
+	if symbolsChanged {
+		symCfg.Symbols = symMap
+		if err := s.store.SaveSymbols(symCfg); err != nil {
+			return report, err
+		}
+	}
 	if err := s.store.SaveMetadataCache(metaMap); err != nil {
 		return report, err
 	}
@@ -1298,6 +1340,27 @@ func (s *Service) UpdateCache(c model.CacheConfig) error {
 // UpdateSymbols saves user edits to symbols.yaml.
 func (s *Service) UpdateSymbols(sym model.SymbolsConfig) error {
 	return s.store.SaveSymbols(sym)
+}
+
+// ResetAllSymbols deletes all symbol definitions, cached prices, and cached symbol metadata
+// (creating automatic timestamped backups before clearing).
+func (s *Service) ResetAllSymbols() error {
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+
+	if err := s.store.SaveSymbols(model.SymbolsConfig{
+		Symbols: make(map[string]model.SymbolDef),
+	}); err != nil {
+		return err
+	}
+	if err := s.store.SaveMetadataCache(make(map[string]model.CachedMetadata)); err != nil {
+		return err
+	}
+	cacheCfg := s.store.Cache()
+	if err := s.store.SavePriceCache(cacheCfg.FXRates, make(map[string]model.CachedPrice)); err != nil {
+		return err
+	}
+	return nil
 }
 
 // LookupSymbol queries live metadata (name, exchange, currency, price) for a ticker symbol.
@@ -1322,6 +1385,477 @@ func (s *Service) LookupSymbol(rawSymbol string, preferredExchange string) (data
 		}, nil
 	}
 	return datasource.SymbolLookupResult{}, err
+}
+
+// checkMissingETFData inspects portfolio holdings and returns warnings for any symbol whose
+// ETF definition, live price, or composite division breakdown has not yet been downloaded.
+func checkMissingETFData(holdings []model.HoldingConfig, symCfg model.SymbolsConfig, cacheCfg model.CacheConfig, dsCfg model.DataSourcesConfig) []string {
+	var missingDef []string
+	var missingPrice []string
+	var missingRatio []string
+	var missingMER []string
+	seen := make(map[string]bool)
+
+	for _, h := range holdings {
+		sym := strings.TrimSpace(h.Symbol)
+		if sym == "" || seen[sym] {
+			continue
+		}
+		seen[sym] = true
+
+		def, hasSym := symCfg.Symbols[sym]
+		if !hasSym {
+			missingDef = append(missingDef, sym)
+			continue
+		}
+		if def.FixedPrice <= 0 && cacheCfg.Prices[sym].Price <= 0 {
+			missingPrice = append(missingPrice, sym)
+		}
+		recipeKey := def.MetadataRecipe
+		if recipeKey == "" {
+			recipeKey = inferMetadataRecipe(sym, datasource.SymbolLookupResult{}, dsCfg)
+		}
+		if recipeKey != "" && len(cacheCfg.SymbolMetadata[sym].Divisions) == 0 {
+			missingRatio = append(missingRatio, sym)
+		}
+		if def.FixedPrice <= 0 && !strings.EqualFold(def.AssetType, "stock") &&
+			def.DefaultMER <= 0 && cacheCfg.SymbolMetadata[sym].MER <= 0 {
+			missingMER = append(missingMER, sym)
+		}
+	}
+
+	sort.Strings(missingDef)
+	sort.Strings(missingPrice)
+	sort.Strings(missingRatio)
+	sort.Strings(missingMER)
+
+	var warnings []string
+	if len(missingDef) > 0 {
+		warnings = append(warnings, fmt.Sprintf("ETF data and live prices have not been downloaded yet for: %s.", strings.Join(missingDef, ", ")))
+	}
+	if len(missingPrice) > 0 {
+		warnings = append(warnings, fmt.Sprintf("Live market prices have not been downloaded yet for: %s.", strings.Join(missingPrice, ", ")))
+	}
+	if len(missingRatio) > 0 {
+		warnings = append(warnings, fmt.Sprintf("Composite ETF division ratios have not been downloaded yet for: %s.", strings.Join(missingRatio, ", ")))
+	}
+	if len(missingMER) > 0 {
+		warnings = append(warnings, fmt.Sprintf("Expense ratio (MER) has not been downloaded yet for: %s.", strings.Join(missingMER, ", ")))
+	}
+	return warnings
+}
+
+// SyncPortfolioSymbols manually downloads missing symbol definitions, live prices, and composite
+// ETF ratios for the given portfolio (or group) and persists them to config YAML caches.
+func (s *Service) SyncPortfolioSymbols(portfolioID string) (RefreshReport, error) {
+	p, err := s.GetPortfolioConfig(portfolioID)
+	if err != nil {
+		return RefreshReport{}, err
+	}
+	return s.ensureSymbolsKnown(p.Holdings)
+}
+
+// SyncAllPortfolioSymbols discovers and downloads missing symbol definitions, prices, and composite
+// ETF ratios across all currently loaded portfolios.
+func (s *Service) SyncAllPortfolioSymbols() (RefreshReport, error) {
+	var all []model.HoldingConfig
+	for _, p := range s.store.AllPortfolios() {
+		all = append(all, p.Holdings...)
+	}
+	return s.ensureSymbolsKnown(all)
+}
+
+// ensureSymbolsKnown downloads unregistered symbols, missing cached prices, and missing composite
+// ETF ratios referenced by holdings, persisting them to symbols.yaml, price_cache.yaml, and cache.yaml.
+func (s *Service) ensureSymbolsKnown(holdings []model.HoldingConfig) (RefreshReport, error) {
+	report := RefreshReport{
+		UpdatedFX:       make(map[string]float64),
+		UpdatedPrices:   make(map[string]float64),
+		UpdatedMetadata: make(map[string]map[string]float64),
+	}
+	if len(holdings) == 0 || s.fetcher == nil {
+		return report, nil
+	}
+
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+
+	symCfg := s.store.Symbols()
+	dsCfg := s.store.DataSources()
+	cacheCfg := s.store.Cache()
+
+	symMap := make(map[string]model.SymbolDef, len(symCfg.Symbols))
+	for k, v := range symCfg.Symbols {
+		symMap[k] = v
+	}
+	priceMap := make(map[string]model.CachedPrice, len(cacheCfg.Prices))
+	for k, v := range cacheCfg.Prices {
+		priceMap[k] = v
+	}
+	fxMap := make(map[string]model.CachedFX, len(cacheCfg.FXRates))
+	for k, v := range cacheCfg.FXRates {
+		fxMap[k] = v
+	}
+	metaMap := make(map[string]model.CachedMetadata, len(cacheCfg.SymbolMetadata))
+	for k, v := range cacheCfg.SymbolMetadata {
+		metaMap[k] = v
+	}
+
+	symbolsChanged := false
+	pricesChanged := false
+	metaChanged := false
+	needsUSD := false
+	processed := make(map[string]bool)
+
+	for _, h := range holdings {
+		sym := strings.TrimSpace(h.Symbol)
+		if sym == "" || processed[sym] {
+			continue
+		}
+		processed[sym] = true
+
+		def, exists := symMap[sym]
+		if !exists {
+			upperSym := strings.ToUpper(sym)
+			if strings.HasPrefix(upperSym, "CASH_") || strings.HasPrefix(upperSym, "GIC_") || upperSym == "CASH" || upperSym == "GIC" {
+				curr := "CAD"
+				if strings.HasSuffix(upperSym, "_USD") {
+					curr = "USD"
+				}
+				name := fmt.Sprintf("Cash / High-Interest Savings (%s)", curr)
+				if strings.HasPrefix(upperSym, "GIC") {
+					name = fmt.Sprintf("Guaranteed Investment Certificate (%s)", curr)
+				}
+				symMap[sym] = model.SymbolDef{
+					AssetType:        "cash",
+					Name:             name,
+					Exchange:         "CASH",
+					Currency:         curr,
+					TaxStructure:     "CA_CA",
+					DefaultMER:       0.0,
+					FixedPrice:       1.0,
+					DefaultDivisions: map[string]float64{"GICs/Bonds": 1.0},
+				}
+				symbolsChanged = true
+				if curr == "USD" {
+					needsUSD = true
+				}
+				continue
+			}
+
+			res, err := s.fetcher.LookupSymbol(sym, "")
+			if err != nil {
+				report.Warnings = append(report.Warnings, fmt.Sprintf("%s: %v", sym, err))
+				log.Printf("[engine] Symbol lookup for %s failed: %v", sym, err)
+				continue
+			}
+
+			assetType := "etf"
+			if strings.EqualFold(res.InstrumentType, "EQUITY") {
+				assetType = "stock"
+			}
+			taxStruct := inferTaxStructure(res, assetType)
+			recipeKey := inferMetadataRecipe(sym, res, dsCfg)
+			defDivs := inferHoldingDefaultDivisions(h, res)
+			defaultMER := 0.0
+			divYield := 0.0
+			if assetType == "etf" {
+				if prof, pErr := s.fetcher.FetchETFProfile(sym, res.YahooTicker, res.Exchange, res.Currency); pErr == nil {
+					defaultMER = prof.MER
+					divYield = prof.DividendYield
+				}
+			}
+
+			existingMeta := metaMap[sym]
+			if defaultMER > 0 {
+				existingMeta.MER = defaultMER
+			}
+			if divYield > 0 {
+				existingMeta.DividendYield = divYield
+				if rule, hasRule := dsCfg.TaxStructureRules[taxStruct]; hasRule {
+					existingMeta.TaxByAccount = computeTaxByAccount(rule, divYield)
+				}
+			}
+			if len(existingMeta.Divisions) == 0 {
+				existingMeta.Divisions = defDivs
+			}
+
+			if recipeKey != "" {
+				if recipe, ok := dsCfg.MetadataRecipes[recipeKey]; ok {
+					if ratios, rErr := s.fetcher.FetchDivisionRatios(sym, recipe); rErr == nil && len(ratios) > 0 {
+						defDivs = ratios
+						existingMeta.Divisions = ratios
+						report.UpdatedMetadata[sym] = ratios
+					} else if rErr != nil {
+						report.Warnings = append(report.Warnings, fmt.Sprintf("%s ratios (%s): %v", sym, recipeKey, rErr))
+					}
+				}
+			}
+			existingMeta.UpdatedAt = time.Now().Format("2006-01-02")
+			metaMap[sym] = existingMeta
+			metaChanged = true
+
+			def = model.SymbolDef{
+				AssetType:        assetType,
+				Name:             res.Name,
+				Exchange:         res.Exchange,
+				YahooTicker:      res.YahooTicker,
+				Currency:         res.Currency,
+				TaxStructure:     taxStruct,
+				MetadataRecipe:   recipeKey,
+				DefaultMER:       defaultMER,
+				DefaultDivisions: defDivs,
+			}
+			symMap[sym] = def
+			symbolsChanged = true
+			log.Printf("[engine] Registered symbol %s (%s, %s, %s, MER=%.4f)", sym, def.YahooTicker, def.Name, def.Currency, def.DefaultMER)
+
+			if res.Price > 0 {
+				priceMap[sym] = model.CachedPrice{
+					Price:     res.Price,
+					Currency:  res.Currency,
+					UpdatedAt: time.Now().Format("2006-01-02 15:04"),
+				}
+				report.UpdatedPrices[sym] = res.Price
+				pricesChanged = true
+			}
+			if strings.EqualFold(def.Currency, "USD") {
+				needsUSD = true
+			}
+			continue
+		}
+
+		if strings.EqualFold(def.Currency, "USD") {
+			needsUSD = true
+		}
+		if def.FixedPrice <= 0 && priceMap[sym].Price <= 0 {
+			cp, err := s.fetcher.FetchPrice(sym, def, dsCfg.PriceSources)
+			if err != nil {
+				report.Warnings = append(report.Warnings, fmt.Sprintf("%s price: %v", sym, err))
+			} else if cp.Price > 0 {
+				priceMap[sym] = cp
+				report.UpdatedPrices[sym] = cp.Price
+				pricesChanged = true
+			}
+		}
+
+		if def.FixedPrice <= 0 && !strings.EqualFold(def.AssetType, "stock") &&
+			def.DefaultMER <= 0 && metaMap[sym].MER <= 0 {
+			if prof, pErr := s.fetcher.FetchETFProfile(sym, def.YahooTicker, def.Exchange, def.Currency); pErr == nil && (prof.MER > 0 || prof.DividendYield > 0) {
+				if prof.MER > 0 {
+					def.DefaultMER = prof.MER
+					symMap[sym] = def
+					symbolsChanged = true
+				}
+				existingMeta := metaMap[sym]
+				if prof.MER > 0 {
+					existingMeta.MER = prof.MER
+				}
+				if prof.DividendYield > 0 {
+					existingMeta.DividendYield = prof.DividendYield
+					if rule, hasRule := dsCfg.TaxStructureRules[def.TaxStructure]; hasRule {
+						existingMeta.TaxByAccount = computeTaxByAccount(rule, prof.DividendYield)
+					}
+				}
+				if existingMeta.UpdatedAt == "" {
+					existingMeta.UpdatedAt = time.Now().Format("2006-01-02")
+				}
+				metaMap[sym] = existingMeta
+				metaChanged = true
+			}
+		}
+
+		recipeKey := def.MetadataRecipe
+		if recipeKey == "" {
+			recipeKey = inferMetadataRecipe(sym, datasource.SymbolLookupResult{}, dsCfg)
+			if recipeKey != "" {
+				def.MetadataRecipe = recipeKey
+				symMap[sym] = def
+				symbolsChanged = true
+			}
+		}
+		if recipeKey != "" && len(metaMap[sym].Divisions) == 0 {
+			if recipe, ok := dsCfg.MetadataRecipes[recipeKey]; ok {
+				if ratios, rErr := s.fetcher.FetchDivisionRatios(sym, recipe); rErr == nil && len(ratios) > 0 {
+					existingMeta := metaMap[sym]
+					if existingMeta.MER == 0 {
+						existingMeta.MER = def.DefaultMER
+					}
+					existingMeta.Divisions = ratios
+					existingMeta.UpdatedAt = time.Now().Format("2006-01-02")
+					metaMap[sym] = existingMeta
+					report.UpdatedMetadata[sym] = ratios
+					metaChanged = true
+				} else if rErr != nil {
+					report.Warnings = append(report.Warnings, fmt.Sprintf("%s ratios (%s): %v", sym, recipeKey, rErr))
+				}
+			}
+		}
+	}
+
+	if needsUSD && fxMap["USD_CAD"].Rate <= 0 {
+		if fx, err := s.fetcher.FetchFX("USD_CAD", dsCfg.FXSources); err == nil && fx.Rate > 0 {
+			fxMap["USD_CAD"] = fx
+			report.UpdatedFX["USD_CAD"] = fx.Rate
+			pricesChanged = true
+		}
+	}
+
+	if symbolsChanged {
+		symCfg.Symbols = symMap
+		if err := s.store.SaveSymbols(symCfg); err != nil {
+			return report, err
+		}
+	}
+	if pricesChanged {
+		if err := s.store.SavePriceCache(fxMap, priceMap); err != nil {
+			return report, err
+		}
+	}
+	if metaChanged {
+		if err := s.store.SaveMetadataCache(metaMap); err != nil {
+			return report, err
+		}
+	}
+	return report, nil
+}
+
+func inferMetadataRecipe(sym string, res datasource.SymbolLookupResult, dsCfg model.DataSourcesConfig) string {
+	upperSym := strings.ToUpper(strings.TrimSuffix(strings.TrimSpace(sym), ".TO"))
+	has := func(key string) bool {
+		_, ok := dsCfg.MetadataRecipes[key]
+		return ok
+	}
+	switch upperSym {
+	case "ZEQT", "ZGRO", "ZBAL", "ZCON":
+		if has("bmo_all_in_one_weights") {
+			return "bmo_all_in_one_weights"
+		}
+	case "VEQT", "VGRO", "VBAL", "VCIP", "VCNS":
+		if has("vanguard_all_in_one_weights") {
+			return "vanguard_all_in_one_weights"
+		}
+	case "XEQT":
+		if has("ishares_xeqt_weights") {
+			return "ishares_xeqt_weights"
+		}
+	case "XAW":
+		if has("ishares_xaw_weights") {
+			return "ishares_xaw_weights"
+		}
+	}
+	return ""
+}
+
+func inferTaxStructure(res datasource.SymbolLookupResult, assetType string) string {
+	upperName := strings.ToUpper(res.Name)
+	if strings.EqualFold(res.Currency, "USD") {
+		if assetType == "stock" {
+			return "US_DOMESTIC"
+		}
+		if strings.Contains(upperName, "EAFE") || strings.Contains(upperName, "EMERGING") ||
+			strings.Contains(upperName, "INTL") || strings.Contains(upperName, "INTERNATIONAL") {
+			return "US_INTL"
+		}
+		return "US_US"
+	}
+	if strings.Contains(upperName, "ALL-EQUITY") || strings.Contains(upperName, "ALL EQUITY") ||
+		strings.Contains(upperName, "EQUITY ETF PORTFOLIO") {
+		return "CA_ALL_EQUITY"
+	}
+	if strings.Contains(upperName, "BALANCED") || strings.Contains(upperName, "GROWTH ETF PORTFOLIO") ||
+		strings.Contains(upperName, "CONSERVATIVE") {
+		return "CA_BALANCED"
+	}
+	if strings.Contains(upperName, "EX CANADA") || strings.Contains(upperName, "EX-CANADA") {
+		return "CA_WORLD_EX_CA"
+	}
+	if strings.Contains(upperName, "EAFE") || strings.Contains(upperName, "EMERGING") ||
+		strings.Contains(upperName, "INTERNATIONAL") {
+		return "CA_INTL"
+	}
+	if strings.Contains(upperName, "U.S.") || strings.Contains(upperName, "S&P 500") ||
+		strings.Contains(upperName, "NASDAQ") || strings.Contains(upperName, "RUSSELL") ||
+		strings.Contains(upperName, "TOTAL US") || strings.Contains(upperName, "US EQUITY") ||
+		strings.Contains(upperName, "US TOTAL") {
+		return "CA_US"
+	}
+	return "CA_CA"
+}
+
+func inferHoldingDefaultDivisions(h model.HoldingConfig, res datasource.SymbolLookupResult) map[string]float64 {
+	if len(h.Divisions) > 0 {
+		out := make(map[string]float64, len(h.Divisions))
+		for k, v := range h.Divisions {
+			out[k] = v
+		}
+		return out
+	}
+	if d := strings.TrimSpace(h.Division); d != "" {
+		return map[string]float64{d: 1.0}
+	}
+	if len(h.RebalanceDivisions) == 1 {
+		if d := strings.TrimSpace(h.RebalanceDivisions[0]); d != "" {
+			return map[string]float64{d: 1.0}
+		}
+	}
+
+	upperName := strings.ToUpper(res.Name)
+	switch {
+	case strings.Contains(upperName, "BOND") || strings.Contains(upperName, "AGGREGATE") ||
+		strings.Contains(upperName, "TREASURY") || strings.Contains(upperName, "FIXED INCOME") ||
+		strings.Contains(upperName, "MONEY MARKET") || strings.Contains(upperName, "HIGH INTEREST"):
+		return map[string]float64{"GICs/Bonds": 1.0}
+	case strings.Contains(upperName, "EMERGING"):
+		return map[string]float64{"Emerging Markets": 1.0}
+	case strings.Contains(upperName, "EAFE") || strings.Contains(upperName, "EUROPE") ||
+		strings.Contains(upperName, "INTERNATIONAL"):
+		return map[string]float64{"Europe/Asia (EAFE)": 1.0}
+	case strings.Contains(upperName, "TSX") ||
+		((strings.Contains(upperName, "CANADIAN") || strings.Contains(upperName, "CANADA")) &&
+			!strings.Contains(upperName, "EX CANADA") && !strings.Contains(upperName, "EX-CANADA")):
+		return map[string]float64{"Canada": 1.0}
+	case strings.Contains(upperName, "U.S.") || strings.Contains(upperName, "S&P 500") ||
+		strings.Contains(upperName, "TOTAL STOCK MARKET") || strings.Contains(upperName, "TOTAL MARKET") ||
+		strings.Contains(upperName, "NASDAQ") || strings.Contains(upperName, "RUSSELL") ||
+		strings.Contains(upperName, "UNITED STATES") || strings.EqualFold(res.Currency, "USD"):
+		return map[string]float64{"America (US)": 1.0}
+	}
+	if len(h.RebalanceDivisions) > 0 {
+		if d := strings.TrimSpace(h.RebalanceDivisions[0]); d != "" {
+			return map[string]float64{d: 1.0}
+		}
+	}
+	return map[string]float64{"Equities": 1.0}
+}
+
+func computeTaxByAccount(rule model.TaxStructureRule, divYield float64) map[string]float64 {
+	if divYield <= 0 || len(rule.AccountMultipliers) == 0 {
+		return nil
+	}
+	out := make(map[string]float64, len(rule.AccountMultipliers))
+	for acc, mult := range rule.AccountMultipliers {
+		if mult <= 0 {
+			out[acc] = 0.0
+			continue
+		}
+		var effectiveRate float64
+		if rule.IntlTier1Rate > 0 && rule.USTier2Rate > 0 {
+			if mult >= 2.0 {
+				effectiveRate = rule.IntlTier1Rate + rule.USTier2Rate*(1.0-rule.IntlTier1Rate)
+			} else {
+				effectiveRate = rule.IntlTier1Rate * mult
+			}
+		} else {
+			baseRate := rule.USTier1Rate
+			if rule.IntlTier1Rate > baseRate {
+				baseRate = rule.IntlTier1Rate
+			}
+			effectiveRate = baseRate * mult
+		}
+		out[acc] = math.Round(divYield*effectiveRate*10000) / 10000
+	}
+	return out
 }
 
 // UpdateDivisions saves user edits to divisions.yaml and cascades any Category or Division renames
@@ -1583,9 +2117,18 @@ func resolveMER(symID string, symDef model.SymbolDef, cache model.CacheConfig) f
 }
 
 func resolveTax(symID string, accountType string, symDef model.SymbolDef, cache model.CacheConfig, ds model.DataSourcesConfig) float64 {
-	if meta, ok := cache.SymbolMetadata[symID]; ok && meta.TaxByAccount != nil {
+	meta, hasMeta := cache.SymbolMetadata[symID]
+	if hasMeta && meta.TaxByAccount != nil {
 		if t, hasAcc := meta.TaxByAccount[accountType]; hasAcc {
 			return t
+		}
+	}
+	if hasMeta && meta.DividendYield > 0 && symDef.TaxStructure != "" {
+		if rule, ok := ds.TaxStructureRules[symDef.TaxStructure]; ok {
+			computed := computeTaxByAccount(rule, meta.DividendYield)
+			if t, ok := computed[accountType]; ok {
+				return t
+			}
 		}
 	}
 	return 0.0

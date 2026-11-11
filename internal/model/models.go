@@ -223,6 +223,7 @@ type PortfolioEvaluation struct {
 	GrossProposedBuyTotalCAD    float64                 `json:"gross_proposed_buy_total_cad"`
 	EstimatedRRSPDeferredTaxCAD float64                 `json:"estimated_rrsp_deferred_tax_cad"`
 	RebalanceWarnings           []string                `json:"rebalance_warnings,omitempty"`
+	DataWarnings                []string                `json:"data_warnings,omitempty"`
 	WeightedMER                 float64                 `json:"weighted_mer"`
 	WeightedMERPlusTax          float64                 `json:"weighted_mer_plus_tax"`
 	Categories                  []CategoryEvaluation    `json:"categories"`

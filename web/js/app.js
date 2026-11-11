@@ -331,8 +331,13 @@
       th_tfsa_drag: 'TFSA / RESP Drag',
       th_taxable_drag: 'Taxable (Net of FTC)',
       th_mapped_securities: 'Mapped Securities',
-      btn_refresh_meta: '↻ Refresh Composite ETF Ratios (iShares / Vanguard)',
-      btn_fetching_ishares: '↻ Fetching iShares...',
+      btn_refresh_meta: '↻ Refresh Composite ETF Ratios',
+      btn_fetching_meta: '↻ Refreshing Composite Ratios...',
+      btn_refresh_etf_data: '↻ Refresh ETF Data',
+      btn_refreshing_etf_data: '↻ Downloading ETF Data...',
+      btn_reset_symbols: '🗑️ Reset All Symbols',
+      confirm_reset_symbols: 'Are you sure you want to delete ALL saved symbols, cached prices, and ETF metadata?\n\nTimestamped backups of symbols.yaml and cache.yaml will be saved automatically.',
+      toast_symbols_reset: 'All symbols and cached ETF metadata deleted (backups saved)',
       btn_save_cache: 'Save Changes to Cache',
       th_symbol: 'Symbol',
       th_name: 'Name',
@@ -368,7 +373,6 @@
       confirm_quit: 'Are you sure you want to quit Embsay?',
       app_stopped_title: 'Embsay has shut down',
       app_stopped_desc: 'The local server is no longer running. You may safely close this browser tab.',
-      btn_close_tab: 'Close Tab',
       lbl_idle_timeout: 'Idle Auto-Close (Hours)'
     },
     'fr-CA': {
@@ -682,8 +686,13 @@
       th_tfsa_drag: 'Traînée CELI / REEE',
       th_taxable_drag: 'Imposable (net du CIE)',
       th_mapped_securities: 'Titres associés',
-      btn_refresh_meta: '↻ Actualiser les ratios des FNB composés (iShares / Vanguard)',
-      btn_fetching_ishares: '↻ Récupération iShares...',
+      btn_refresh_meta: '↻ Actualiser les ratios des FNB composés',
+      btn_fetching_meta: '↻ Actualisation des ratios...',
+      btn_refresh_etf_data: '↻ Actualiser les données FNB',
+      btn_refreshing_etf_data: '↻ Téléchargement...',
+      btn_reset_symbols: '🗑️ Réinitialiser tous les symboles',
+      confirm_reset_symbols: 'Voulez-vous vraiment supprimer TOUS les symboles enregistrés, les prix en cache et les métadonnées FNB ?\n\nDes sauvegardes horodatées seront enregistrées automatiquement.',
+      toast_symbols_reset: 'Tous les symboles et métadonnées FNB ont été supprimés',
       btn_save_cache: 'Enregistrer les modifications au cache',
       th_symbol: 'Symbole',
       th_name: 'Nom',
@@ -719,7 +728,6 @@
       confirm_quit: 'Êtes-vous certain de vouloir quitter Embsay ?',
       app_stopped_title: 'Embsay s’est arrêté',
       app_stopped_desc: 'Le serveur local ne fonctionne plus. Vous pouvez fermer cet onglet en toute sécurité.',
-      btn_close_tab: 'Fermer l’onglet',
       lbl_idle_timeout: 'Fermeture automatique si inactif (heures)'
     }
   };
@@ -966,6 +974,17 @@
     ]);
     currentEval = await evRes.json();
     currentPortfolioConfig = await pRes.json();
+    const syms = (appState && appState.symbols && appState.symbols.symbols) || {};
+    const prices = (appState && appState.cache && appState.cache.prices) || {};
+    const missingInUI = (currentPortfolioConfig.holdings || []).some(h => {
+      return h.symbol && (!syms[h.symbol] || (!syms[h.symbol].fixed_price && (!prices[h.symbol] || !prices[h.symbol].price)));
+    });
+    if (missingInUI) {
+      const stRes = await fetch('/api/state', { headers });
+      if (stRes.ok) {
+        appState = await stRes.json();
+      }
+    }
     renderAll();
   }
 
@@ -1131,6 +1150,18 @@
       warnWrap.innerHTML = warnings.map(w =>
         `<div style="width:100%;font-size:12px;line-height:1.5;color:var(--amber);">⚠️ ${esc(t('rebal_warning_title'))}: ${esc(w)}</div>`
       ).join('');
+    }
+    const dataBanner = document.getElementById('dataWarningsBanner');
+    const dataText = document.getElementById('dataWarningsText');
+    if (dataBanner && dataText) {
+      const dWarnings = (currentEval && currentEval.data_warnings) || [];
+      const showBanner = currentMainView === 'portfolio' && dWarnings.length > 0;
+      dataBanner.classList.toggle('hidden', !showBanner);
+      if (showBanner) {
+        dataText.innerHTML = dWarnings.map(w => `<div>⚠️ ${esc(w)}</div>`).join('');
+      } else {
+        dataText.innerHTML = '';
+      }
     }
     const cashLabel = document.getElementById('rebalCashLabel');
     if (cashLabel) {
@@ -1376,6 +1407,12 @@
       }
     }
 
+    const dataBanner = document.getElementById('dataWarningsBanner');
+    if (dataBanner) {
+      const hasDataWarnings = currentEval && currentEval.data_warnings && currentEval.data_warnings.length > 0;
+      dataBanner.classList.toggle('hidden', !(view === 'portfolio' && hasDataWarnings));
+    }
+
     if (view === 'portfolio') {
       switchPortfolioSubTab(currentPortfolioSubTab || 'account');
     } else if (view === 'port-mgmt') {
@@ -1523,12 +1560,15 @@
 
   async function refreshMetadata() {
     const btn = document.getElementById('btnRefreshMeta');
-    btn.textContent = t('btn_fetching_ishares');
+    btn.textContent = t('btn_fetching_meta');
     btn.disabled = true;
     try {
       const res = await fetch('/api/refresh/metadata', { method: 'POST' });
       const report = await res.json();
       await loadStateAndEvaluate();
+      if (typeof renderSecuritiesTab === 'function') {
+        renderSecuritiesTab();
+      }
       const count = Object.keys(report.updated_metadata || {}).length;
       showToast(`Updated division ratios for ${count} composite ETF(s)`);
     } finally {
@@ -1536,6 +1576,64 @@
       btn.disabled = false;
     }
   }
+
+  async function refreshCurrentPortfolioData() {
+    const btn = document.getElementById('btnRefreshPortData');
+    if (btn) {
+      btn.textContent = t('btn_refreshing_etf_data');
+      btn.disabled = true;
+    }
+    try {
+      const url = selectedPortfolio
+        ? `/api/refresh/portfolio?id=${encodeURIComponent(selectedPortfolio)}`
+        : '/api/refresh/portfolio';
+      const res = await fetch(url, { method: 'POST' });
+      const report = await res.json();
+      await loadStateAndEvaluate();
+      const priceCount = Object.keys(report.updated_prices || {}).length;
+      const metaCount = Object.keys(report.updated_metadata || {}).length;
+      if (priceCount > 0 || metaCount > 0) {
+        showToast(`Downloaded data for ${priceCount} ticker(s) and ${metaCount} composite ETF ratio(s)`);
+      } else if (report.warnings && report.warnings.length > 0) {
+        showToast(report.warnings[0]);
+      }
+    } catch (e) {
+      showToast('Failed to download missing ETF data');
+    } finally {
+      if (btn) {
+        btn.textContent = t('btn_refresh_etf_data');
+        btn.disabled = false;
+      }
+    }
+  }
+  window.refreshCurrentPortfolioData = refreshCurrentPortfolioData;
+
+  async function resetAllSymbols() {
+    if (!confirm(t('confirm_reset_symbols'))) {
+      return;
+    }
+    const btn = document.getElementById('btnResetSymbols');
+    if (btn) btn.disabled = true;
+    try {
+      const res = await fetch('/api/symbols/reset', { method: 'POST' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.error || 'Failed to reset symbols');
+        return;
+      }
+      appState = await res.json();
+      await loadStateAndEvaluate();
+      if (typeof renderSecuritiesTab === 'function') {
+        renderSecuritiesTab();
+      }
+      showToast(t('toast_symbols_reset'));
+    } catch (e) {
+      showToast('Failed to reset symbols');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+  window.resetAllSymbols = resetAllSymbols;
 
   // --- Portfolio Creation & Deletion ---
 
@@ -1822,9 +1920,11 @@
       // Server will shut down quickly
     }
     showShutdownOverlay();
+    attemptCloseTab();
   }
 
   function showShutdownOverlay() {
+    document.title = t('app_stopped_title');
     const overlay = document.getElementById('shutdownOverlay');
     if (overlay) {
       overlay.classList.remove('hidden');
@@ -1832,7 +1932,13 @@
     }
   }
 
+  function attemptCloseTab() {
+    try { window.open('', '_self'); } catch (e) {}
+    try { window.close(); } catch (e) {}
+  }
+
   window.quitApplication = quitApplication;
   window.showShutdownOverlay = showShutdownOverlay;
+  window.attemptCloseTab = attemptCloseTab;
 
   init();

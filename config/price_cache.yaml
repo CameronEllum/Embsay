@@ -72,3 +72,7 @@ prices:
     price: 15.12
     currency: CAD
     updated_at: 2026-11-09 21:00
+  ZEQT:
+    price: 23.23
+    currency: CAD
+    updated_at: 2026-11-10 22:05

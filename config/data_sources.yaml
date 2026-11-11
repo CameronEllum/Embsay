@@ -99,6 +99,32 @@ metadata_recipes:
       "Global ex-U.S. Aggregate Bond Index ETF (CAD-hedged)": "GICs/Bonds"
       "U.S. Aggregate Bond Index ETF (CAD-hedged)": "GICs/Bonds"
 
+  # BMO Asset Allocation ETFs (ZEQT, ZGRO, ZBAL, ZCON) via StockAnalysis server-side holdings table:
+  bmo_all_in_one_weights:
+    name: BMO All-in-One ETFs (StockAnalysis Holdings Table)
+    type: html_table
+    url_template: "https://stockanalysis.com/quote/tsx/{symbol}/holdings/"
+    table_match: "Holdings"
+    key_column_index: 1
+    weight_column_index: 3
+    underlying_to_division:
+      "TSX:ZSP": "America (US)"
+      "TSX:ZMID": "America (US)"
+      "TSX:ZSML": "America (US)"
+      "TSX:ZQQ": "America (US)"
+      "TSX:ZCN": "Canada"
+      "TSX:ZEA": "Europe/Asia (EAFE)"
+      "TSX:ZEM": "Emerging Markets"
+      "TSX:ZAG": "GICs/Bonds"
+      "TSX:ZDB": "GICs/Bonds"
+      "TSX:ZGB": "GICs/Bonds"
+      "TSX:ZFL": "GICs/Bonds"
+      "TSX:ZFM": "GICs/Bonds"
+      "TSX:ZFS": "GICs/Bonds"
+      "TSX:ZCS": "GICs/Bonds"
+      "TSX:ZTL": "GICs/Bonds"
+      "TSX:ZTM": "GICs/Bonds"
+
 # Foreign Withholding Tax (FWT) Calculation Rules by Tax Structure & Account Type
 tax_structure_rules:
   CA_CA:

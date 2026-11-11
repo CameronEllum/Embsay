@@ -167,3 +167,16 @@ symbol_metadata:
     divisions:
       "GICs/Bonds": 1
     updated_at: "2026-01-18"
+  ZEQT:
+    mer: 0.0018
+    dividend_yield: 0.0127
+    tax_by_account:
+      non_registered: 0.0005
+      rrsp: 0.001
+      tfsa: 0.001
+    divisions:
+      "America (US)": 0.4963
+      "Canada": 0.2533
+      "Emerging Markets": 0.0856
+      "Europe/Asia (EAFE)": 0.1648
+    updated_at: "2026-11-10"

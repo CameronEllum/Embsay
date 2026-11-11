@@ -78,9 +78,11 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/portfolio/import-csv", s.handleImportCSV)
 	s.mux.HandleFunc("/api/refresh/prices", s.handleRefreshPrices)
 	s.mux.HandleFunc("/api/refresh/metadata", s.handleRefreshMetadata)
+	s.mux.HandleFunc("/api/refresh/portfolio", s.handleRefreshPortfolio)
 	s.mux.HandleFunc("/api/cache", s.handleUpdateCache)
 	s.mux.HandleFunc("/api/symbols", s.handleUpdateSymbols)
 	s.mux.HandleFunc("/api/symbols/lookup", s.handleLookupSymbol)
+	s.mux.HandleFunc("/api/symbols/reset", s.handleResetSymbols)
 	s.mux.HandleFunc("/api/divisions", s.handleUpdateDivisions)
 	s.mux.HandleFunc("/api/config", s.handleUpdateConfig)
 	s.mux.HandleFunc("/api/browse-directory", s.handleBrowseDirectory)
@@ -453,6 +455,9 @@ func (s *Server) handleRefreshPrices(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]interface{}{"updated_prices": map[string]float64{}})
 		return
 	}
+	if r.URL.Query().Get("silent") != "true" {
+		_, _ = s.svc.SyncAllPortfolioSymbols()
+	}
 	report, err := s.svc.RefreshPricesAndFX()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
@@ -466,9 +471,41 @@ func (s *Server) handleRefreshMetadata(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+	if s.svc == nil {
+		writeJSON(w, http.StatusOK, map[string]interface{}{"updated_metadata": map[string]interface{}{}})
+		return
+	}
+	_, _ = s.svc.SyncAllPortfolioSymbols()
 	report, err := s.svc.RefreshMetadataRecipes()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, report)
+}
+
+func (s *Server) handleRefreshPortfolio(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	if s.svc == nil {
+		writeJSON(w, http.StatusOK, map[string]interface{}{})
+		return
+	}
+	portfolioID := r.URL.Query().Get("id")
+	if portfolioID == "" {
+		report, err := s.svc.SyncAllPortfolioSymbols()
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, report)
+		return
+	}
+	report, err := s.svc.SyncPortfolioSymbols(portfolioID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, report)
@@ -517,6 +554,22 @@ func (s *Server) handleLookupSymbol(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, res)
+}
+
+func (s *Server) handleResetSymbols(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	if s.svc == nil {
+		writeJSON(w, http.StatusOK, map[string]interface{}{})
+		return
+	}
+	if err := s.svc.ResetAllSymbols(); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, s.svc.GetAppState())
 }
 
 func (s *Server) handleUpdateDivisions(w http.ResponseWriter, r *http.Request) {

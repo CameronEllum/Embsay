@@ -29,6 +29,13 @@ func NewFetcher() *Fetcher {
 	}
 }
 
+func NewFetcherWithClient(client *http.Client) *Fetcher {
+	if client == nil {
+		return NewFetcher()
+	}
+	return &Fetcher{client: client}
+}
+
 // FetchFX fetches the latest FX rate for a currency pair (e.g. "USD_CAD") using enabled recipes in order.
 func (f *Fetcher) FetchFX(pair string, sources []model.FXSourceRecipe) (model.CachedFX, error) {
 	var lastErr error
@@ -326,6 +333,99 @@ func parseHTMLTableRowsForDivisions(tableHTML string, recipe model.MetadataRecip
 func cleanHTMLText(s string) string {
 	s = html.UnescapeString(htmlTagRe.ReplaceAllString(s, " "))
 	return strings.TrimSpace(htmlSpaceRe.ReplaceAllString(s, " "))
+}
+
+var (
+	expenseRatioRowRe  = regexp.MustCompile(`(?is)<t[dh]\b[^>]*>(?:\s|<[^>]+>)*Expense\s+Ratio(?:\s|<[^>]+>)*</t[dh]>\s*<t[dh]\b[^>]*>(.*?)</t[dh]>`)
+	dividendYieldRowRe = regexp.MustCompile(`(?is)<t[dh]\b[^>]*>(?:\s|<[^>]+>)*Dividend\s+Yield(?:\s|<[^>]+>)*</t[dh]>\s*<t[dh]\b[^>]*>(.*?)</t[dh]>`)
+)
+
+type ETFProfileResult struct {
+	MER           float64
+	DividendYield float64
+}
+
+// ParseETFProfileFromHTML extracts an ETF's Expense Ratio (MER) and Dividend Yield from HTML.
+func ParseETFProfileFromHTML(htmlContent string) (ETFProfileResult, error) {
+	var res ETFProfileResult
+	if m := expenseRatioRowRe.FindStringSubmatch(htmlContent); len(m) >= 2 {
+		raw := cleanHTMLText(m[1])
+		pctStr := strings.TrimSpace(strings.TrimSuffix(raw, "%"))
+		if val, err := strconv.ParseFloat(pctStr, 64); err == nil && val > 0 && val < 10 {
+			res.MER = val / 100.0
+		}
+	}
+	if m := dividendYieldRowRe.FindStringSubmatch(htmlContent); len(m) >= 2 {
+		raw := cleanHTMLText(m[1])
+		pctStr := strings.TrimSpace(strings.TrimSuffix(raw, "%"))
+		if val, err := strconv.ParseFloat(pctStr, 64); err == nil && val > 0 && val < 25 {
+			res.DividendYield = val / 100.0
+		}
+	}
+	if res.MER == 0 && res.DividendYield == 0 {
+		return res, fmt.Errorf("expense ratio and dividend yield not found in HTML")
+	}
+	return res, nil
+}
+
+// ParseExpenseRatioFromHTML extracts an ETF's annual Expense Ratio / MER percentage from HTML
+// and returns it as a decimal ratio (e.g. "0.18%" -> 0.0018).
+func ParseExpenseRatioFromHTML(htmlContent string) (float64, error) {
+	prof, err := ParseETFProfileFromHTML(htmlContent)
+	if err != nil || prof.MER <= 0 {
+		return 0, fmt.Errorf("expense ratio row not found in HTML")
+	}
+	return prof.MER, nil
+}
+
+// FetchETFProfile retrieves an ETF's MER and dividend yield from StockAnalysis product pages.
+func (f *Fetcher) FetchETFProfile(symbol, yahooTicker, exchange, currency string) (ETFProfileResult, error) {
+	baseSym := strings.ToUpper(strings.TrimSpace(strings.Split(symbol, ".")[0]))
+	if baseSym == "" {
+		return ETFProfileResult{}, fmt.Errorf("empty symbol")
+	}
+	isCanadian := strings.EqualFold(exchange, "TSX") || strings.EqualFold(exchange, "TSE") ||
+		strings.HasSuffix(strings.ToUpper(yahooTicker), ".TO") || strings.EqualFold(currency, "CAD")
+
+	var urls []string
+	if isCanadian {
+		urls = []string{fmt.Sprintf("https://stockanalysis.com/quote/tsx/%s/", strings.ToLower(baseSym))}
+	} else {
+		urls = []string{fmt.Sprintf("https://stockanalysis.com/etf/%s/", strings.ToLower(baseSym))}
+	}
+
+	headers := map[string]string{
+		"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+	}
+	var lastErr error
+	for _, u := range urls {
+		body, err := f.httpGet(u, headers)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		prof, err := ParseETFProfileFromHTML(string(body))
+		if err == nil {
+			return prof, nil
+		}
+		lastErr = err
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("no ETF profile data found for %s", symbol)
+	}
+	return ETFProfileResult{}, lastErr
+}
+
+// FetchETFExpenseRatio retrieves an ETF's expense ratio (MER) from StockAnalysis product pages.
+func (f *Fetcher) FetchETFExpenseRatio(symbol, yahooTicker, exchange, currency string) (float64, error) {
+	prof, err := f.FetchETFProfile(symbol, yahooTicker, exchange, currency)
+	if err != nil || prof.MER <= 0 {
+		if err == nil {
+			err = fmt.Errorf("expense ratio not found for %s", symbol)
+		}
+		return 0, err
+	}
+	return prof.MER, nil
 }
 
 type ImportedRow struct {
