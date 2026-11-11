@@ -2,6 +2,7 @@ package store
 
 import (
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -38,6 +39,53 @@ func NewStore(baseDir string) (*Store, error) {
 		return nil, err
 	}
 	return s, nil
+}
+
+// EnsureDefaultConfigs seeds missing default config YAML files (and the examples/ folder on
+// initial setup) from an embedded fs.FS without ever overwriting existing user files.
+func EnsureDefaultConfigs(baseDir string, defaultFS fs.FS) error {
+	if defaultFS == nil {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Join(baseDir, "config"), 0755); err != nil {
+		return fmt.Errorf("creating config dir: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Join(baseDir, "portfolios"), 0755); err != nil {
+		return fmt.Errorf("creating portfolios dir: %w", err)
+	}
+
+	_, examplesMissingErr := os.Stat(filepath.Join(baseDir, "examples"))
+	populateExamples := os.IsNotExist(examplesMissingErr)
+
+	return fs.WalkDir(defaultFS, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		if strings.Contains(filepath.Base(path), "_backup_") {
+			return nil
+		}
+		if strings.HasPrefix(path, "examples/") && !populateExamples {
+			return nil
+		}
+		targetPath := filepath.Join(baseDir, filepath.FromSlash(path))
+		if _, statErr := os.Stat(targetPath); statErr == nil {
+			return nil
+		} else if !os.IsNotExist(statErr) {
+			return statErr
+		}
+		if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+			return err
+		}
+		data, err := fs.ReadFile(defaultFS, path)
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(targetPath, data, 0644); err != nil {
+			return err
+		}
+		log.Printf("[store] Created default file: %s", path)
+		return nil
+	})
 }
 
 func (s *Store) ReloadAll() error {
@@ -99,12 +147,6 @@ func (s *Store) ReloadAll() error {
 						s.dataSources.MetadataRecipes = make(map[string]model.MetadataRecipe)
 					}
 					s.dataSources.MetadataRecipes[k] = v
-				}
-				for k, v := range pluginDS.CSVImporters {
-					if s.dataSources.CSVImporters == nil {
-						s.dataSources.CSVImporters = make(map[string]model.CSVImporterRecipe)
-					}
-					s.dataSources.CSVImporters[k] = v
 				}
 			}
 		}

@@ -29,6 +29,7 @@ It eliminates the spreadsheets and manual math required to coordinate Canadian a
   * [2. Classic Two-Fund Flat Allocation (30% VAB / 70% VEQT)](#2-classic-two-fund-flat-allocation-30-vab--70-veqt)
   * [3. Pure One-Ticket ETF (100% XEQT Across Accounts)](#3-pure-one-ticket-etf-100-xeqt-across-accounts)
   * [4. Master Securities Catalog & Tax Drag Reference](#4-master-securities-catalog--tax-drag-reference)
+* [Adding a Position](#adding-a-position)
 * [Portfolio Rebalancing](#portfolio-rebalancing)
 * [After-Tax Portfolio Allocation & The Plaid Strategy](#after-tax-portfolio-allocation--the-plaid-strategy)
 * [Quick Start Guide](#quick-start-guide)
@@ -60,8 +61,7 @@ Rather than hardcoding web scrapers or locking you into a single data vendor, Em
 * **Exchange Rates**: Fetches official daily `USD/CAD` closing rates directly from the **Bank of Canada Valet API**, with automatic fallback to Yahoo Finance if needed.
 * **Live Security Prices**: Queries the **Yahoo Finance Chart API** (`v8`) to look up prices and currencies for Canadian (`.TO`) and US-listed ETFs, and supports optional alternative REST providers (such as Twelve Data) via custom JSON path mappings.
 * **Composite ETF Weight Recipes**: Automatically refreshes the geographic asset breakdowns of all-in-one ETFs directly from fund providers—downloading BlackRock iShares Canada holdings CSV exports (e.g., `XEQT`, `XAW`) and parsing Vanguard Canada product allocation tables (`VEQT`, `VBAL`, `VCIP`).
-* **Brokerage CSV Importers**: Built-in column-mapping recipes let you import position exports directly from **Questrade** and **Wealthsimple** CSV files.
-* **Extensible via Plugins**: Want to add a different ETF provider, price source, or brokerage CSV format? Drop an extra `.yaml` recipe file into the `plugins/` folder and Embsay picks it up automatically.
+* **Extensible via Plugins**: Want to add a different ETF provider or price source? Drop an extra `.yaml` recipe file into the `plugins/` folder and Embsay picks it up automatically.
 
 ---
 
@@ -88,6 +88,24 @@ Holding a single all-in-one fund across multiple accounts (`TFSA`, `RRSP`, `Non-
 Inspect fund MERs, underlying division weights, and estimated foreign withholding tax (FWT) drag across different account types (`TFSA`, `RRSP`, `Non-Registered`), or trigger one-click refreshes for prices and composite ETF breakdowns.
 
 ![Securities Catalog and Tax Drag](docs/screenshots/06_securities_and_tax.png)
+
+---
+
+## Adding a Position
+
+You can add ETFs, stocks, GICs, or cash holdings directly from the **By Account** view:
+
+1. **Open the Dialog & Search**: Click **+ Add Position** (either in the top-right action bar or inside any account card such as `TFSA`). Start typing a ticker symbol or fund name (for example, `VA`) to match local catalog entries or search online quotes automatically.
+
+   ![Add Position Search and Autocomplete](docs/screenshots/07_add_position_search.png)
+
+2. **Preview Details & Enter Shares**: Select the ETF (e.g., `VAB`) to auto-fill its exchange, current quote, and division mapping (`GICs/Bonds: 100%`), enter your share count (e.g., `250`), verify the live CAD estimate (`$5,644`), and click **+ Add Position**.
+
+   ![Add Position Preview and Shares](docs/screenshots/08_add_position_confirm.png)
+
+3. **Instant Account & Portfolio Update**: The position is saved to your portfolio YAML file (along with an automatic timestamped backup), immediately updating your account totals, portfolio weights, and division breakdowns.
+
+   ![Updated Holdings by Account](docs/screenshots/09_add_position_result.png)
 
 ---
 

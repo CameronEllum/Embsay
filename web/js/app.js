@@ -48,7 +48,7 @@
       lbl_target: 'Target',
       lbl_drift: 'Drift',
       nav_by_account: 'By Account',
-      nav_positions: 'Positions & Import',
+      nav_positions: 'Positions',
       nav_strategy: 'Strategy, Divisions & Groups',
       nav_strategy_targets: 'Strategy Targets',
       btn_refresh_prices_short: 'Refresh Prices',
@@ -189,9 +189,6 @@
       lbl_note_opt: 'Note (Optional)',
       ph_note: 'e.g. GIC maturity',
       btn_add_position: '+ Add Position',
-      import_csv_title: 'Import Brokerage CSV',
-      btn_import_csv: 'Import CSV',
-      ph_csv_paste: 'Paste brokerage positions CSV here (Account,Symbol,Quantity)...',
       portfolio_positions_title: 'Portfolio Positions (Single Entry per Holding)',
       portfolio_positions_sub: 'Click any share count to edit directly. Multi-division ETFs are entered once here.',
       btn_delete_portfolio: 'Delete Portfolio "{name}"',
@@ -405,7 +402,7 @@
       lbl_target: 'Cible',
       lbl_drift: 'Écart',
       nav_by_account: 'Par compte',
-      nav_positions: 'Positions et importation',
+      nav_positions: 'Positions',
       nav_strategy: 'Stratégie, divisions et groupes',
       nav_strategy_targets: 'Cibles de stratégie',
       btn_refresh_prices_short: 'Actualiser les cours',
@@ -546,9 +543,6 @@
       lbl_note_opt: 'Note (facultatif)',
       ph_note: 'p. ex. Échéance CPG',
       btn_add_position: '+ Ajouter la position',
-      import_csv_title: 'Importer un fichier CSV de courtage',
-      btn_import_csv: 'Importer CSV',
-      ph_csv_paste: 'Collez ici le CSV de positions (Compte,Symbole,Quantité)...',
       portfolio_positions_title: 'Positions du portefeuille (une entrée par détention)',
       portfolio_positions_sub: 'Cliquez sur un nombre de parts pour le modifier directement. Les FNB multidivisions sont saisis une seule fois ici.',
       btn_delete_portfolio: 'Supprimer le portefeuille « {name} »',
@@ -1744,7 +1738,7 @@
     showToast('Deleted portfolio');
   }
 
-  // --- Positions & CSV ---
+  // --- Table Sorting & Helpers ---
 
   function initSortableTables() {
     document.querySelectorAll('table[data-sort-table]').forEach(table => {

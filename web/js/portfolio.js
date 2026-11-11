@@ -1659,7 +1659,7 @@
       else if (nameLow.includes(q)) score = 40;
 
       if (score > 0) {
-        const cachedPriceObj = (appState.price_cache && appState.price_cache.prices) ? appState.price_cache.prices[symKey] : null;
+        const cachedPriceObj = (appState.cache && appState.cache.prices) ? appState.cache.prices[symKey] : null;
         matches.push({
           symbol: symKey,
           name: def.name || symKey,
@@ -1756,6 +1756,7 @@
   }
 
   function selectModalSymbol(symKey, keepSuggestionsOpen, onlineData) {
+    clearTimeout(modalSymbolDebounceTimer);
     const symInp = document.getElementById('modalAddPosSymbolInput');
     if (symInp) symInp.value = symKey;
 
@@ -1766,7 +1767,7 @@
 
     const symbolsMap = (appState.symbols && appState.symbols.symbols) ? appState.symbols.symbols : {};
     const localDef = symbolsMap[symKey] || {};
-    const cachedPriceObj = (appState.price_cache && appState.price_cache.prices) ? appState.price_cache.prices[symKey] : null;
+    const cachedPriceObj = (appState.cache && appState.cache.prices) ? appState.cache.prices[symKey] : null;
 
     const name = (onlineData && onlineData.name) || localDef.name || symKey;
     const exchange = (onlineData && onlineData.exchange) || localDef.exchange || 'TSE';

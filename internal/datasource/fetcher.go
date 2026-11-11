@@ -428,12 +428,6 @@ func (f *Fetcher) FetchETFExpenseRatio(symbol, yahooTicker, exchange, currency s
 	return prof.MER, nil
 }
 
-type ImportedRow struct {
-	Account string  `json:"account"`
-	Symbol  string  `json:"symbol"`
-	Shares  float64 `json:"shares"`
-}
-
 type SymbolLookupResult struct {
 	Symbol         string  `json:"symbol"`
 	YahooTicker    string  `json:"yahoo_ticker"`
@@ -554,66 +548,6 @@ func normalizeExchangeName(exch, fullExch, ticker string) string {
 	default:
 		return "TSX"
 	}
-}
-
-// ParseBrokerageCSV parses exported brokerage positions CSV using a declarative column mapping.
-func ParseBrokerageCSV(recipe model.CSVImporterRecipe, csvContent string) ([]ImportedRow, error) {
-	r := csv.NewReader(strings.NewReader(strings.TrimPrefix(csvContent, "\ufeff")))
-	r.FieldsPerRecord = -1
-	r.LazyQuotes = true
-
-	records, err := r.ReadAll()
-	if err != nil {
-		return nil, fmt.Errorf("invalid CSV: %w", err)
-	}
-	if len(records) < 2 {
-		return nil, fmt.Errorf("CSV contains no data rows")
-	}
-
-	headers := records[0]
-	colIdx := func(colName string) int {
-		for i, h := range headers {
-			if strings.EqualFold(strings.TrimSpace(h), strings.TrimSpace(colName)) {
-				return i
-			}
-		}
-		return -1
-	}
-
-	accIdx := colIdx(recipe.Columns["account"])
-	symIdx := colIdx(recipe.Columns["symbol"])
-	shrIdx := colIdx(recipe.Columns["shares"])
-	if symIdx == -1 || shrIdx == -1 {
-		return nil, fmt.Errorf("required columns symbol (%q) or shares (%q) not found in CSV headers %v",
-			recipe.Columns["symbol"], recipe.Columns["shares"], headers)
-	}
-
-	var out []ImportedRow
-	for _, row := range records[1:] {
-		if len(row) <= symIdx || len(row) <= shrIdx {
-			continue
-		}
-		sym := strings.ToUpper(strings.TrimSpace(row[symIdx]))
-		sym = strings.TrimSuffix(sym, ".TO")
-		if sym == "" {
-			continue
-		}
-		shrStr := strings.ReplaceAll(strings.TrimSpace(row[shrIdx]), ",", "")
-		shares, err := strconv.ParseFloat(shrStr, 64)
-		if err != nil || shares == 0 {
-			continue
-		}
-		acc := "Imported"
-		if accIdx >= 0 && len(row) > accIdx && strings.TrimSpace(row[accIdx]) != "" {
-			acc = strings.TrimSpace(row[accIdx])
-		}
-		out = append(out, ImportedRow{
-			Account: acc,
-			Symbol:  sym,
-			Shares:  shares,
-		})
-	}
-	return out, nil
 }
 
 func (f *Fetcher) httpGet(url string, headers map[string]string) ([]byte, error) {

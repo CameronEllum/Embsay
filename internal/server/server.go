@@ -75,7 +75,6 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/portfolio/amount-to-buy", s.handleSetAmountToBuy)
 	s.mux.HandleFunc("/api/portfolio/apply-trades", s.handleApplyTrades)
 	s.mux.HandleFunc("/api/portfolio/commit-trades", s.handleCommitTrades)
-	s.mux.HandleFunc("/api/portfolio/import-csv", s.handleImportCSV)
 	s.mux.HandleFunc("/api/refresh/prices", s.handleRefreshPrices)
 	s.mux.HandleFunc("/api/refresh/metadata", s.handleRefreshMetadata)
 	s.mux.HandleFunc("/api/refresh/portfolio", s.handleRefreshPortfolio)
@@ -414,36 +413,6 @@ func (s *Server) handleCommitTrades(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, eval)
-}
-
-func (s *Server) handleImportCSV(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	var req struct {
-		PortfolioID string `json:"portfolio_id"`
-		ImporterID  string `json:"importer_id"`
-		CSVContent  string `json:"csv_content"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-	count, err := s.svc.ImportBrokerageCSV(req.PortfolioID, req.ImporterID, req.CSVContent)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-	eval, err := s.svc.Evaluate(req.PortfolioID, "all")
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"updated_count": count,
-		"evaluation":    eval,
-	})
 }
 
 func (s *Server) handleRefreshPrices(w http.ResponseWriter, r *http.Request) {

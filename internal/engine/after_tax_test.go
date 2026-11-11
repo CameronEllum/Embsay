@@ -161,7 +161,6 @@ price_sources: []
 fx_sources: []
 metadata_recipes: {}
 tax_structure_rules: {}
-csv_importers: {}
 `,
 		"config/cache.yaml": `# empty metadata cache
 symbol_metadata: {}

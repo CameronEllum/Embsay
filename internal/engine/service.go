@@ -2014,55 +2014,6 @@ func (s *Service) UpdateDivisions(div model.DivisionsConfig) error {
 	return nil
 }
 
-// ImportBrokerageCSV parses a brokerage CSV and updates matching holdings (or appends new ones) in the portfolio.
-func (s *Service) ImportBrokerageCSV(portfolioID string, importerID string, csvContent string) (int, error) {
-	dsCfg := s.store.DataSources()
-	recipe, ok := dsCfg.CSVImporters[importerID]
-	if !ok {
-		return 0, fmt.Errorf("CSV importer %q not found", importerID)
-	}
-	rows, err := datasource.ParseBrokerageCSV(recipe, csvContent)
-	if err != nil {
-		return 0, err
-	}
-	p, ok := s.store.GetPortfolio(portfolioID)
-	if !ok {
-		return 0, fmt.Errorf("portfolio %q not found", portfolioID)
-	}
-
-	divCfg := s.store.Divisions()
-	updatedCount := 0
-	for _, r := range rows {
-		matched := false
-		for i := range p.Holdings {
-			if strings.EqualFold(p.Holdings[i].Symbol, r.Symbol) &&
-				(strings.EqualFold(p.Holdings[i].Account, r.Account) || r.Account == "Imported") {
-				p.Holdings[i].Shares = r.Shares
-				matched = true
-				updatedCount++
-				break
-			}
-		}
-		if !matched {
-			accType := inferAccountType(r.Account, divCfg.AccountTypes)
-			newID := fmt.Sprintf("imp_%s_%s_%d", strings.ToLower(r.Account), strings.ToLower(r.Symbol), len(p.Holdings)+1)
-			newID = strings.ReplaceAll(newID, " ", "_")
-			p.Holdings = append(p.Holdings, model.HoldingConfig{
-				ID:          newID,
-				Account:     r.Account,
-				AccountType: accType,
-				Symbol:      r.Symbol,
-				Shares:      r.Shares,
-			})
-			updatedCount++
-		}
-	}
-	if err := s.store.SavePortfolio(p); err != nil {
-		return 0, err
-	}
-	return updatedCount, nil
-}
-
 // --- Internal Helpers ---
 
 func resolveStrategyTargets(strat model.StrategyConfig, cats []model.CategoryDef, divs []model.DivisionDef) (map[string]float64, map[string]float64, map[string]float64) {
@@ -2310,27 +2261,6 @@ func computeRegVsUnregSummaries(divs []model.DivisionEvaluation, cats []model.Ca
 		buildGroup("Registered (RRSP + TFSA)", regTotal, regCatVal),
 		buildGroup("Unregistered (Taxable)", unregTotal, unregCatVal),
 	}
-}
-
-func inferAccountType(accName string, accTypes map[string]model.AccountTypeDef) string {
-	upper := strings.ToUpper(strings.TrimSpace(accName))
-	for id, def := range accTypes {
-		for _, alias := range def.Aliases {
-			if strings.EqualFold(alias, upper) || strings.Contains(upper, strings.ToUpper(alias)) {
-				return id
-			}
-		}
-	}
-	if strings.Contains(upper, "TFSA") {
-		return "tfsa"
-	}
-	if strings.Contains(upper, "RRSP") {
-		return "rrsp"
-	}
-	if strings.Contains(upper, "RESP") {
-		return "resp"
-	}
-	return "non_registered"
 }
 
 func safeDiv(num, den float64) float64 {

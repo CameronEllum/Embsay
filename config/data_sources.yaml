@@ -168,18 +168,3 @@ tax_structure_rules:
     us_tier1_rate: 0.15
     intl_tier1_rate: 0.085
     account_multipliers: { rrsp: 1.0, tfsa: 1.0, non_registered: 0.4, resp: 1.0 }
-
-# Declarative CSV Importers for Brokerage Position Exports
-csv_importers:
-  questrade:
-    name: Questrade Positions CSV
-    columns:
-      account: "Account"
-      symbol: "Symbol"
-      shares: "Quantity"
-  wealthsimple:
-    name: Wealthsimple Positions CSV
-    columns:
-      account: "Account Name"
-      symbol: "Symbol"
-      shares: "Quantity"

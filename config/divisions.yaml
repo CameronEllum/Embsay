@@ -42,10 +42,6 @@ account_types:
     name: RESP (Education Savings)
     registered: true
     aliases: ["RESP"]
-  fhsa:
-    name: FHSA (First Home Savings)
-    registered: true
-    aliases: ["FHSA"]
 
 # Custom Portfolio Groups (Combine any portfolios into a single unified view)
 portfolio_groups: []

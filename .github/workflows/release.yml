@@ -64,12 +64,12 @@ jobs:
           cd dist
           zip -r ../${{ matrix.artifact_name }} ${{ matrix.binary_name }}
           cd ..
-          zip -r ${{ matrix.artifact_name }} config/config.example.yaml examples/ README.md
+          zip -r ${{ matrix.artifact_name }} config/config.example.yaml config/divisions.yaml config/data_sources.yaml config/symbols.yaml config/cache.yaml config/price_cache.yaml examples/ README.md
 
       - name: Bundle Archive (Unix)
         if: matrix.goos != 'windows'
         run: |
-          tar -czvf ${{ matrix.artifact_name }} -C dist ${{ matrix.binary_name }} config/config.example.yaml examples/ README.md
+          tar -czvf ${{ matrix.artifact_name }} -C dist ${{ matrix.binary_name }} -C "${{ github.workspace }}" config/config.example.yaml config/divisions.yaml config/data_sources.yaml config/symbols.yaml config/cache.yaml config/price_cache.yaml examples/ README.md
 
       - name: Upload Artifact to Release
         uses: softprops/action-gh-release@v2

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"testing/fstest"
 
 	"embsay/internal/store"
 )
@@ -77,5 +78,49 @@ func TestCustomPortfolioPaths(t *testing.T) {
 
 	if _, ok3 := st.GetPortfolio("port_three"); !ok3 {
 		t.Errorf("Expected port_three to be loaded after adding customDir3 to AppConfig. Loaded: %v", st.PortfolioIDs())
+	}
+}
+
+func TestEnsureDefaultConfigsCreatesMissingFilesAndPreservesExisting(t *testing.T) {
+	tmpDir := t.TempDir()
+	_ = os.MkdirAll(filepath.Join(tmpDir, "config"), 0755)
+	existingSym := "symbols:\n  CUSTOM: { name: Custom }\n"
+	_ = os.WriteFile(filepath.Join(tmpDir, "config", "symbols.yaml"), []byte(existingSym), 0644)
+
+	defaults := fstest.MapFS{
+		"config/divisions.yaml":     &fstest.MapFile{Data: []byte("categories: []\ndivisions: []\n")},
+		"config/symbols.yaml":       &fstest.MapFile{Data: []byte("symbols: {}\n")},
+		"config/data_sources.yaml":  &fstest.MapFile{Data: []byte("price_sources: []\n")},
+		"config/cache.yaml":         &fstest.MapFile{Data: []byte("symbol_metadata: {}\n")},
+		"examples/sample_demo.yaml": &fstest.MapFile{Data: []byte("name: Sample\nholdings: []\n")},
+	}
+
+	if err := store.EnsureDefaultConfigs(tmpDir, defaults); err != nil {
+		t.Fatalf("EnsureDefaultConfigs failed: %v", err)
+	}
+
+	// Existing symbols.yaml must NOT be overwritten
+	gotSym, err := os.ReadFile(filepath.Join(tmpDir, "config", "symbols.yaml"))
+	if err != nil {
+		t.Fatalf("read symbols.yaml: %v", err)
+	}
+	if string(gotSym) != existingSym {
+		t.Errorf("existing symbols.yaml was overwritten: got %q, want %q", string(gotSym), existingSym)
+	}
+
+	// Missing files must be created
+	for _, rel := range []string{"config/divisions.yaml", "config/data_sources.yaml", "config/cache.yaml", "examples/sample_demo.yaml"} {
+		if _, err := os.Stat(filepath.Join(tmpDir, filepath.FromSlash(rel))); err != nil {
+			t.Errorf("expected %s to be created: %v", rel, err)
+		}
+	}
+
+	// If user deletes a file inside an existing examples/ dir, re-running does not recreate examples/
+	_ = os.Remove(filepath.Join(tmpDir, "examples", "sample_demo.yaml"))
+	if err := store.EnsureDefaultConfigs(tmpDir, defaults); err != nil {
+		t.Fatalf("second EnsureDefaultConfigs failed: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmpDir, "examples", "sample_demo.yaml")); !os.IsNotExist(err) {
+		t.Errorf("expected deleted sample_demo.yaml not to be forced back when examples/ already exists")
 	}
 }

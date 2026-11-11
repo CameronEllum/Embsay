@@ -24,6 +24,9 @@ import (
 //go:embed web
 var embeddedWeb embed.FS
 
+//go:embed config/config.example.yaml config/divisions.yaml config/data_sources.yaml config/symbols.yaml config/cache.yaml config/price_cache.yaml examples/plaid_strategy.yaml examples/pure_xeqt.yaml examples/vab_30_veqt_70.yaml examples/vab_30_xeqt_70.yaml examples/zag_30_zeqt_70.yaml
+var embeddedDefaults embed.FS
+
 func exitWithError(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	log.Println(msg)
@@ -85,9 +88,15 @@ func main() {
 				exeDir := filepath.Dir(exePath)
 				if _, err := os.Stat(filepath.Join(exeDir, "config", "divisions.yaml")); err == nil {
 					dir = exeDir
+				} else if _, err := os.Stat(filepath.Join(exeDir, "examples")); err == nil {
+					dir = exeDir
 				}
 			}
 		}
+	}
+
+	if err := store.EnsureDefaultConfigs(dir, embeddedDefaults); err != nil {
+		exitWithError("Failed to initialize default config files in %q: %v", dir, err)
 	}
 
 	st, err := store.NewStore(dir)

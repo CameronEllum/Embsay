@@ -67,11 +67,10 @@ type SymbolDef struct {
 // --- 3. data_sources.yaml (Data Sources + Recipes/Mappings) ---
 
 type DataSourcesConfig struct {
-	PriceSources      []PriceSourceRecipe          `yaml:"price_sources" json:"price_sources"`
-	FXSources         []FXSourceRecipe             `yaml:"fx_sources" json:"fx_sources"`
-	MetadataRecipes   map[string]MetadataRecipe    `yaml:"metadata_recipes" json:"metadata_recipes"`
-	TaxStructureRules map[string]TaxStructureRule  `yaml:"tax_structure_rules" json:"tax_structure_rules"`
-	CSVImporters      map[string]CSVImporterRecipe `yaml:"csv_importers" json:"csv_importers"`
+	PriceSources      []PriceSourceRecipe         `yaml:"price_sources" json:"price_sources"`
+	FXSources         []FXSourceRecipe            `yaml:"fx_sources" json:"fx_sources"`
+	MetadataRecipes   map[string]MetadataRecipe   `yaml:"metadata_recipes" json:"metadata_recipes"`
+	TaxStructureRules map[string]TaxStructureRule `yaml:"tax_structure_rules" json:"tax_structure_rules"`
 }
 
 type PriceSourceRecipe struct {
@@ -113,11 +112,6 @@ type TaxStructureRule struct {
 	IntlTier1Rate      float64            `yaml:"intl_tier1_rate" json:"intl_tier1_rate"`
 	USTier2Rate        float64            `yaml:"us_tier2_rate,omitempty" json:"us_tier2_rate,omitempty"`
 	AccountMultipliers map[string]float64 `yaml:"account_multipliers" json:"account_multipliers"`
-}
-
-type CSVImporterRecipe struct {
-	Name    string            `yaml:"name" json:"name"`
-	Columns map[string]string `yaml:"columns" json:"columns"`
 }
 
 // --- 4. cache.yaml (MERs, Withholding Info, Division Ratios) & price_cache.yaml (Live Prices & FX Rates) ---
