@@ -255,7 +255,6 @@
         const compBadge = r.is_composite_slice
           ? `<span class="pill pill-primary" style="margin-left:6px;" title="${esc(t('comp_slice_title', { pct: fmtPct(r.division_weight, 1), shares: round4(r.total_holding_shares), sym: r.symbol }))}">${esc(t('comp_slice_badge', { pct: fmtPct(r.division_weight, 1), sym: r.symbol }))}</span>`
           : '';
-        const noteSpan = r.note ? `<span class="text-muted" style="margin-left:6px;font-size:12px;">· ${esc(r.note)}</span>` : '';
 
         const rebalCells = rebalanceMode ? `
           <td class="center">
@@ -286,7 +285,7 @@
             <td class="left">
               <b title="${esc(r.symbol_name)}">${esc(r.symbol)}</b>
               ${!rebalanceMode && r.symbol_name ? `<span class="text-muted" style="font-size:12.5px;margin-left:4px;">${esc(r.symbol_name)}</span>` : ''}
-              ${compBadge}${noteSpan}
+              ${compBadge}
             </td>
             <td class="text-muted">${fmtPrice(r.share_price)} <span style="font-size:11px;">${esc(r.currency)}</span></td>
             <td>${fmtNum(r.total_holding_shares)}</td>
@@ -406,7 +405,6 @@
           const targetPct = div.target_ratio || 0;
 
           const subRowsHtml = divSlices.map(s => {
-            const noteSpan = s.note ? `<span class="text-muted" style="margin-left:6px;font-size:12px;">· ${esc(s.note)}</span>` : '';
             const accCellHtml = `<b>${esc(s.account)}</b>`;
             const slicePortPct = e.current_total_cad > 0 ? (s.market_value_cad / e.current_total_cad) : 0;
             const compPill = s.is_composite_slice ? `<span class="pill pill-neutral" style="margin-left:6px;font-size:11px;">${fmtPct(s.division_weight, 0)} ${esc(s.symbol)}</span>` : '';
@@ -418,7 +416,6 @@
                   <b title="${esc(s.symbol_name)}">${esc(s.symbol)}</b>
                   ${!rebalanceMode && s.symbol_name ? `<span class="text-muted" style="font-size:12.5px;margin-left:4px;">${esc(s.symbol_name)}</span>` : ''}
                   ${compPill}
-                  ${noteSpan}
                 </td>
                 <td class="text-muted">${fmtPrice(s.share_price)} <span style="font-size:11px;">${esc(s.currency)}</span></td>
                 <td>${fmtNum(s.is_composite_slice ? s.effective_shares : s.total_holding_shares)}</td>
@@ -477,7 +474,6 @@
         if (unassigned.length > 0) {
           const unassignedVal = unassigned.reduce((sum, h) => sum + (afterTaxMode() ? (h.allocation_value_cad ?? h.market_value_cad) : h.market_value_cad), 0);
           const unassignedRows = unassigned.map(h => {
-            const noteSpan = h.note ? `<span class="text-muted" style="margin-left:6px;font-size:12px;">· ${esc(h.note)}</span>` : '';
             const accCellHtml = `<b>${esc(h.account)}</b>`;
             const portPct = e.current_total_cad > 0 ? (h.market_value_cad / e.current_total_cad) : 0;
             return `
@@ -486,7 +482,6 @@
                 <td class="left wrap-text">
                   <b title="${esc(h.symbol_name)}">${esc(h.symbol)}</b>
                   ${!rebalanceMode && h.symbol_name ? `<span class="text-muted" style="font-size:12.5px;margin-left:4px;">${esc(h.symbol_name)}</span>` : ''}
-                  ${noteSpan}
                 </td>
                 <td class="text-muted">${fmtPrice(h.share_price)} <span style="font-size:11px;">${esc(h.currency)}</span></td>
                 <td>${fmtNum(h.shares)}</td>
@@ -558,7 +553,6 @@
         const breakdownPills = Object.entries(h.division_breakdown || {})
           .map(([d, w]) => `<span class="pill pill-neutral" style="margin-right:4px;">${esc(tTerm(d))}: ${fmtPct(w, 1)}</span>`)
           .join('');
-        const noteSpan = h.note ? `<span class="text-muted" style="margin-left:6px;font-size:12px;">· ${esc(h.note)}</span>` : '';
         const accCellHtml = `<b>${esc(h.account)}</b>`;
         const portPct = e.current_total_cad > 0 ? (h.market_value_cad / e.current_total_cad) : 0;
 
@@ -568,7 +562,6 @@
             <td class="left">
               <b title="${esc(h.symbol_name)}">${esc(h.symbol)}</b>
               ${!rebalanceMode && h.symbol_name ? `<span class="text-muted" style="font-size:12.5px;margin-left:4px;">${esc(h.symbol_name)}</span>` : ''}
-              ${noteSpan}
             </td>
             <td class="left">${breakdownPills}</td>
             <td class="text-muted">${fmtPrice(h.share_price)} <span style="font-size:11px;">${esc(h.currency)}</span></td>
@@ -666,7 +659,6 @@
         const breakdownPills = Object.entries(h.division_breakdown || {})
           .map(([d, w]) => `<span class="pill pill-neutral" style="margin-right:4px;" title="${esc(tTerm(d))}: ${fmtPct(w, 1)} target division allocation">${esc(tTerm(d))}: ${fmtPct(w, 1)}</span>`)
           .join('');
-        const noteSpan = h.note ? `<span class="text-muted" style="margin-left:6px;font-size:12px;">· ${esc(h.note)}</span>` : '';
         const portPct = e.current_total_cad > 0 ? (h.market_value_cad / e.current_total_cad) : 0;
         const delHoldingTitle = esc(t('title_delete_position', { sym: h.symbol }) || `Delete position ${h.symbol}`);
 
@@ -699,7 +691,6 @@
             <td class="left">
               <b title="${esc(h.symbol_name)}">${esc(h.symbol)}</b>
               ${!rebalanceMode && h.symbol_name ? `<span class="text-muted" style="font-size:12.5px;margin-left:4px;">${esc(h.symbol_name)}</span>` : ''}
-              ${noteSpan}
             </td>
             <td class="left">${breakdownPills}</td>
             <td class="text-muted">${fmtPrice(h.share_price)} <span style="font-size:11px;">${esc(h.currency)}</span></td>

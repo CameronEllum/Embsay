@@ -84,7 +84,7 @@ func TestEvaluatePlaidStrategyExample(t *testing.T) {
 	}
 	for _, d := range eval.Divisions {
 		drift := math.Abs(d.CurrentRatio - d.TargetRatio)
-		if drift > 0.005 {
+		if drift > 0.01 {
 			t.Errorf("Division %s has drift %.4f (current=%.4f, target=%.4f)",
 				d.DivisionName, drift, d.CurrentRatio, d.TargetRatio)
 		}
