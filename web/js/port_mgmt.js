@@ -227,7 +227,12 @@ async function selectPortfolioAndSwitch(id) {
 }
 
 async function renamePortfolioFromMgmt(id, currentName) {
-  const next = prompt('Rename portfolio:', currentName || '');
+  const next = await openPromptModal({
+    title: 'Rename Portfolio',
+    label: 'Portfolio Name',
+    initialValue: currentName || '',
+    confirmLabel: 'Rename'
+  });
   if (next === null) return;
   const trimmed = next.trim();
   if (!trimmed || trimmed === currentName) return;
@@ -264,7 +269,12 @@ async function renamePortfolioFromMgmt(id, currentName) {
 }
 
 async function renamePortfolioGroup(id, currentName) {
-  const next = prompt('Rename portfolio group:', currentName || '');
+  const next = await openPromptModal({
+    title: 'Rename Portfolio Group',
+    label: 'Group Name',
+    initialValue: currentName || '',
+    confirmLabel: 'Rename'
+  });
   if (next === null) return;
   const trimmed = next.trim();
   if (!trimmed || trimmed === currentName) return;
@@ -295,7 +305,13 @@ async function renamePortfolioGroup(id, currentName) {
 }
 
 async function deletePortfolioFromMgmt(id, name) {
-  if (!confirm(`Delete portfolio "${name}"?`)) return;
+  const ok = await openConfirmModal({
+    title: 'Delete Portfolio',
+    message: `Delete portfolio "${name}"?`,
+    confirmLabel: 'Delete',
+    danger: true
+  });
+  if (!ok) return;
   await fetch(`/api/portfolio?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
   const stRes = await fetch('/api/state');
   appState = await stRes.json();
@@ -397,7 +413,13 @@ async function addPortfolioGroupFromMgmt() {
 }
 
 async function deletePortfolioGroup(id) {
-  if (!confirm(`Delete saved portfolio group "${id}"?`)) return;
+  const ok = await openConfirmModal({
+    title: 'Delete Portfolio Group',
+    message: `Delete saved portfolio group "${id}"?`,
+    confirmLabel: 'Delete',
+    danger: true
+  });
+  if (!ok) return;
   const divs = appState.divisions || {};
   if (!divs.portfolio_groups) return;
   divs.portfolio_groups = divs.portfolio_groups.filter(g => g.id !== id);

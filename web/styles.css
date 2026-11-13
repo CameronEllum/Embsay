@@ -594,7 +594,50 @@ body {
 }
 .stacked-seg {
   height: 100%;
-  transition: width 0.3s ease;
+  transition: width 0.3s ease, opacity 0.15s ease, filter 0.15s ease;
+}
+.stacked-seg.div-highlight {
+  filter: brightness(1.12);
+  opacity: 1 !important;
+}
+.stacked-seg.div-dim {
+  opacity: 0.32 !important;
+}
+tr.div-highlight {
+  background: var(--primary-soft) !important;
+}
+.div-card.div-card-flash {
+  box-shadow: 0 0 0 2px var(--primary), 0 8px 24px rgba(59, 130, 246, 0.18);
+  transition: box-shadow 0.3s ease;
+}
+.div-card-header {
+  cursor: pointer;
+  user-select: none;
+}
+.div-card.collapsed .div-card-body {
+  display: none;
+}
+.div-card.collapsed .div-card-header {
+  border-bottom: none;
+}
+.card-chevron {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+  width: 12px;
+  text-align: center;
+}
+.div-card.collapsed .card-chevron {
+  transform: rotate(-90deg);
+}
+.btn-danger {
+  background: var(--red);
+  color: #fff;
+  border-color: var(--red);
+}
+.btn-danger:hover {
+  filter: brightness(0.92);
 }
 .alloc-legend {
   display: flex;

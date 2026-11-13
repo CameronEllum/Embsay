@@ -123,13 +123,13 @@
     const actualSegs = divs.map((d, i) => {
       const color = DIVISION_COLORS[i % DIVISION_COLORS.length];
       const w = Math.max(0, d.current_ratio * 100);
-      return `<div class="stacked-seg" style="width:${w}%;background:${color};" title="${esc(tTerm(d.division_name))}: ${fmtPct(d.current_ratio, 1)} (${fmtMoney(d.current_value_cad)})"></div>`;
+      return `<div class="stacked-seg" data-division="${esc(d.division_name)}" style="width:${w}%;background:${color};cursor:pointer;" title="${esc(tTerm(d.division_name))}: ${fmtPct(d.current_ratio, 1)} (${fmtMoney(d.current_value_cad)})" onmouseenter="highlightDivision('${esc(d.division_name)}', true)" onmouseleave="highlightDivision('${esc(d.division_name)}', false)" onclick="scrollToDivisionCard('${esc(d.division_name)}')"></div>`;
     }).join('');
 
     const targetSegs = divs.map((d, i) => {
       const color = DIVISION_COLORS[i % DIVISION_COLORS.length];
       const w = Math.max(0, d.target_ratio * 100);
-      return `<div class="stacked-seg" style="width:${w}%;background:${color};opacity:0.75;" title="${esc(tTerm(d.division_name))}: ${fmtPct(d.target_ratio, 1)}"></div>`;
+      return `<div class="stacked-seg" data-division="${esc(d.division_name)}" style="width:${w}%;background:${color};opacity:0.75;cursor:pointer;" title="${esc(tTerm(d.division_name))}: ${fmtPct(d.target_ratio, 1)}" onmouseenter="highlightDivision('${esc(d.division_name)}', true)" onmouseleave="highlightDivision('${esc(d.division_name)}', false)" onclick="scrollToDivisionCard('${esc(d.division_name)}')"></div>`;
     }).join('');
 
     const barsContainer = document.getElementById('stackedBarsContainer');
@@ -168,8 +168,8 @@
         ` : '';
 
         return `
-          <tr data-row-key="${esc(d.division_name)}">
-            <td class="left">
+          <tr data-row-key="${esc(d.division_name)}" data-division="${esc(d.division_name)}" onmouseenter="highlightDivision('${esc(d.division_name)}', true)" onmouseleave="highlightDivision('${esc(d.division_name)}', false)">
+            <td class="left" style="cursor:pointer;" onclick="if(!event.target.closest('.drag-handle')) scrollToDivisionCard('${esc(d.division_name)}')">
               ${dragHandleHtml(isGrp)}<span class="legend-dot" style="background:${color};display:inline-block;margin-right:8px;"></span>
               <b>${esc(tTerm(d.division_name))}</b>
             </td>
@@ -329,10 +329,13 @@
         <div><span class="text-muted">${esc(t('lbl_trade_needed_colon'))}</span> <span class="text-muted" style="font-size:10px;margin-left:2px;">${esc(t(afterTaxMode() ? 'lbl_gross_trade_needed_colon' : 'lbl_trade_needed_colon'))}</span> <span class="${div.amount_to_buy_cad >= 0 ? 'text-green' : 'text-red'}">${fmtSignedMoney(div.amount_to_buy_cad)}</span></div>
       ` : '';
 
+      const cardKey = `div:${div.division_name}`;
+      const isCollapsed = collapsedCards.has(cardKey);
       return `
-        <div class="div-card">
-          <div class="div-card-header">
+        <div class="div-card${isCollapsed ? ' collapsed' : ''}" data-division="${esc(div.division_name)}" data-card-key="${esc(cardKey)}">
+          <div class="div-card-header" onclick="onDivCardHeaderClick(event, '${esc(cardKey)}')">
             <div class="div-title-group">
+              <span class="card-chevron">▾</span>
               <span class="legend-dot" style="background:${color};width:12px;height:12px;"></span>
               <span style="font-size:15px;font-weight:700;">${esc(tTerm(div.division_name))}</span>
               <span class="pill pill-neutral">${esc(tTerm(div.category_name))}</span>
@@ -343,7 +346,7 @@
               ${rebalHeaderInfo}
             </div>
           </div>
-          <div style="overflow-x:auto;">
+          <div class="div-card-body" style="overflow-x:auto;">
             <table class="table-clean" data-sort-table="div_${esc(div.division_name)}" data-drag-scope="holdings">
               <thead>
                 <tr>
@@ -369,6 +372,7 @@
         </div>
       `;
     }).join('');
+    updateCollapseAllButton('divisionCardsContainer');
   }
 
   let classificationStrategyMode = false;
@@ -555,10 +559,13 @@
           ? divSections.join('')
           : `<div class="center text-muted" style="padding:16px;">${esc(t('empty_classification'))}</div>`;
 
+        const clsCardKey = `cls:${cls.account_type || cls.name}`;
+        const clsCollapsed = collapsedCards.has(clsCardKey);
         return `
-          <div class="div-card">
-            <div class="div-card-header">
+          <div class="div-card${clsCollapsed ? ' collapsed' : ''}" data-card-key="${esc(clsCardKey)}">
+            <div class="div-card-header" onclick="onDivCardHeaderClick(event, '${esc(clsCardKey)}')">
               <div class="div-title-group">
+                <span class="card-chevron">▾</span>
                 <span class="legend-dot" style="background:${color};width:12px;height:12px;"></span>
                 <span style="font-size:15px;font-weight:700;">${esc(tTerm(cls.name))}</span>
               </div>
@@ -568,7 +575,7 @@
                 <div><span class="text-muted">${esc(t('lbl_portfolio_weight_colon'))}</span> <b>${fmtPct(cls.portfolio_ratio, 1)}</b></div>
               </div>
             </div>
-            ${bodyContent}
+            <div class="div-card-body">${bodyContent}</div>
           </div>
         `;
       }
@@ -597,10 +604,13 @@
         `;
       }).join('');
 
+      const clsCardKey = `cls:${cls.account_type || cls.name}`;
+      const clsCollapsed = collapsedCards.has(clsCardKey);
       return `
-        <div class="div-card">
-          <div class="div-card-header">
+        <div class="div-card${clsCollapsed ? ' collapsed' : ''}" data-card-key="${esc(clsCardKey)}">
+          <div class="div-card-header" onclick="onDivCardHeaderClick(event, '${esc(clsCardKey)}')">
             <div class="div-title-group">
+              <span class="card-chevron">▾</span>
               <span class="legend-dot" style="background:${color};width:12px;height:12px;"></span>
               <span style="font-size:15px;font-weight:700;">${esc(tTerm(cls.name))}</span>
             </div>
@@ -610,7 +620,7 @@
               <div><span class="text-muted">${esc(t('lbl_portfolio_weight_colon'))}</span> <b>${fmtPct(cls.portfolio_ratio, 1)}</b></div>
             </div>
           </div>
-          <div style="overflow-x:auto;">
+          <div class="div-card-body" style="overflow-x:auto;">
             <table class="table-clean" data-sort-table="cls_${esc(cls.account_type)}" data-drag-scope="holdings">
               <thead>
                 <tr>
@@ -629,6 +639,7 @@
         </div>
       `;
     }).join('');
+    updateCollapseAllButton('classificationCardsContainer');
   }
 
   function renderAccountView() {
@@ -734,10 +745,13 @@
 
       const colSpan = !isGrp ? 7 : 6;
 
+      const accCardKey = `acc:${acc.account}`;
+      const accCollapsed = collapsedCards.has(accCardKey);
       return `
-        <div class="div-card">
-          <div class="div-card-header">
+        <div class="div-card${accCollapsed ? ' collapsed' : ''}" data-card-key="${esc(accCardKey)}">
+          <div class="div-card-header" onclick="onDivCardHeaderClick(event, '${esc(accCardKey)}')">
             <div class="div-title-group" style="display:flex;align-items:center;gap:6px;">
+              <span class="card-chevron">▾</span>
               <span class="legend-dot" style="background:${color};width:12px;height:12px;"></span>
               <span style="font-size:15px;font-weight:700;">${esc(acc.account)}</span>
               ${renameBtnHtml}
@@ -749,7 +763,7 @@
               ${cardActionsHtml}
             </div>
           </div>
-          <div style="overflow-x:auto;">
+          <div class="div-card-body" style="overflow-x:auto;">
             <table class="table-clean" data-sort-table="acc_${esc(acc.account)}" data-drag-scope="holdings">
               <thead>
                 <tr>
@@ -768,6 +782,7 @@
         </div>
       `;
     }).join('');
+    updateCollapseAllButton('accountCardsContainer');
   }
 
   function renderClassificationSummaryTable() {
@@ -1373,7 +1388,12 @@
       return;
     }
     const promptText = t('prompt_rename_account', { old: oldAccName });
-    const newName = prompt(promptText, oldAccName);
+    const newName = await openPromptModal({
+      title: 'Rename Account',
+      label: promptText,
+      initialValue: oldAccName,
+      confirmLabel: 'Rename'
+    });
     if (!newName || newName.trim() === '' || newName.trim() === oldAccName) {
       return;
     }
@@ -1526,7 +1546,12 @@
   }
 
   async function commitProposedTrades() {
-    if (!confirm('Commit simulated trades to your holdings and reset simulated trades to 0?')) return;
+    const ok = await openConfirmModal({
+      title: 'Commit Executed Trades',
+      message: 'Commit simulated trades to your holdings and reset simulated trades to 0?',
+      confirmLabel: 'Commit Trades'
+    });
+    if (!ok) return;
     const res = await fetch('/api/portfolio/commit-trades', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1582,7 +1607,13 @@
     const msg = count > 0
       ? `Delete account "${accName}" and all ${count} position(s)?`
       : `Delete account "${accName}"?`;
-    if (!confirm(msg)) return;
+    const ok = await openConfirmModal({
+      title: 'Delete Account',
+      message: msg,
+      confirmLabel: 'Delete',
+      danger: true
+    });
+    if (!ok) return;
 
     currentPortfolioConfig.holdings = holds.filter(h => h.account !== accName);
     await fetch('/api/portfolio', {
@@ -2076,6 +2107,82 @@
     }
     renderAll();
     showToast('Saved row order to portfolio YAML');
+  }
+
+  const collapsedCards = new Set();
+
+  function onDivCardHeaderClick(event, cardKey) {
+    if (event.target.closest('button, a, input, select')) return;
+    const card = event.currentTarget.closest('.div-card');
+    if (!card) return;
+    const nextCollapsed = !card.classList.contains('collapsed');
+    card.classList.toggle('collapsed', nextCollapsed);
+    if (nextCollapsed) {
+      collapsedCards.add(cardKey);
+    } else {
+      collapsedCards.delete(cardKey);
+    }
+    const container = card.parentElement;
+    if (container && container.id) updateCollapseAllButton(container.id);
+  }
+
+  function toggleAllCardsIn(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const cards = Array.from(container.querySelectorAll('.div-card[data-card-key]'));
+    if (cards.length === 0) return;
+    const anyExpanded = cards.some(c => !c.classList.contains('collapsed'));
+    cards.forEach(c => {
+      const key = c.dataset.cardKey;
+      c.classList.toggle('collapsed', anyExpanded);
+      if (anyExpanded) {
+        collapsedCards.add(key);
+      } else {
+        collapsedCards.delete(key);
+      }
+    });
+    updateCollapseAllButton(containerId);
+  }
+
+  function updateCollapseAllButton(containerId) {
+    const btn = document.querySelector(`button[data-collapse-target="${containerId}"]`);
+    const container = document.getElementById(containerId);
+    if (!btn || !container) return;
+    const cards = Array.from(container.querySelectorAll('.div-card[data-card-key]'));
+    const allCollapsed = cards.length > 0 && cards.every(c => c.classList.contains('collapsed'));
+    btn.textContent = allCollapsed ? 'Expand All' : 'Collapse All';
+  }
+
+  function highlightDivision(divName, active) {
+    const segs = document.querySelectorAll('#stackedBarsContainer .stacked-seg');
+    segs.forEach(seg => {
+      const match = seg.dataset.division === divName;
+      seg.classList.toggle('div-highlight', active && match);
+      seg.classList.toggle('div-dim', active && !match);
+    });
+    const rows = document.querySelectorAll('#divisionSummaryTable tbody tr[data-division]');
+    rows.forEach(row => {
+      row.classList.toggle('div-highlight', active && row.dataset.division === divName);
+    });
+  }
+
+  function scrollToDivisionCard(divName) {
+    const cards = document.querySelectorAll('#divisionCardsContainer .div-card[data-division]');
+    for (const card of cards) {
+      if (card.dataset.division === divName) {
+        if (card.classList.contains('collapsed')) {
+          card.classList.remove('collapsed');
+          if (card.dataset.cardKey) collapsedCards.delete(card.dataset.cardKey);
+          updateCollapseAllButton('divisionCardsContainer');
+        }
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.classList.remove('div-card-flash');
+        void card.offsetWidth;
+        card.classList.add('div-card-flash');
+        setTimeout(() => card.classList.remove('div-card-flash'), 1600);
+        break;
+      }
+    }
   }
 
   

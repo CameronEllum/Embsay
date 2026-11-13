@@ -1605,6 +1605,113 @@
     showToast(`USD/CAD set to ${rate.toFixed(4)}`);
   }
 
+  // Reusable styled prompt/confirm modal
+  let _appDialogResolve = null;
+  let _appDialogMode = 'confirm';
+
+  function _openAppDialog(opts) {
+    const modal = document.getElementById('appDialogModal');
+    const titleEl = document.getElementById('appDialogTitle');
+    const msgEl = document.getElementById('appDialogMessage');
+    const inputWrap = document.getElementById('appDialogInputWrap');
+    const labelEl = document.getElementById('appDialogInputLabel');
+    const inputEl = document.getElementById('appDialogInput');
+    const confirmBtn = document.getElementById('appDialogConfirmBtn');
+    const cancelBtn = document.getElementById('appDialogCancelBtn');
+    if (!modal) {
+      if (opts.mode === 'prompt') return Promise.resolve(window.prompt(opts.label || opts.title || '', opts.initialValue || ''));
+      return Promise.resolve(window.confirm(opts.message || opts.title || ''));
+    }
+
+    if (_appDialogResolve) {
+      const prev = _appDialogResolve;
+      _appDialogResolve = null;
+      prev(_appDialogMode === 'prompt' ? null : false);
+    }
+
+    _appDialogMode = opts.mode || 'confirm';
+    titleEl.textContent = opts.title || '';
+    if (opts.message) {
+      msgEl.textContent = opts.message;
+      msgEl.classList.remove('hidden');
+    } else {
+      msgEl.textContent = '';
+      msgEl.classList.add('hidden');
+    }
+
+    if (_appDialogMode === 'prompt') {
+      inputWrap.classList.remove('hidden');
+      labelEl.textContent = opts.label || '';
+      inputEl.value = opts.initialValue || '';
+      inputEl.placeholder = opts.placeholder || '';
+    } else {
+      inputWrap.classList.add('hidden');
+      inputEl.value = '';
+    }
+
+    cancelBtn.textContent = opts.cancelLabel || (typeof t === 'function' ? t('btn_cancel') : 'Cancel');
+    confirmBtn.textContent = opts.confirmLabel || 'OK';
+    confirmBtn.className = opts.danger ? 'btn btn-danger' : 'btn btn-primary';
+
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+      if (_appDialogMode === 'prompt') {
+        inputEl.focus();
+        inputEl.select();
+      } else {
+        confirmBtn.focus();
+      }
+    }, 10);
+
+    return new Promise(resolve => {
+      _appDialogResolve = resolve;
+    });
+  }
+
+  function closeAppDialog(result) {
+    const modal = document.getElementById('appDialogModal');
+    if (modal) modal.classList.add('hidden');
+    if (_appDialogResolve) {
+      const resolve = _appDialogResolve;
+      _appDialogResolve = null;
+      resolve(result);
+    }
+  }
+
+  function confirmAppDialog() {
+    if (_appDialogMode === 'prompt') {
+      const inputEl = document.getElementById('appDialogInput');
+      closeAppDialog(inputEl ? inputEl.value : '');
+    } else {
+      closeAppDialog(true);
+    }
+  }
+
+  function openPromptModal(opts = {}) {
+    return _openAppDialog({ ...opts, mode: 'prompt' });
+  }
+
+  function openConfirmModal(opts = {}) {
+    return _openAppDialog({ ...opts, mode: 'confirm' });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    const modal = document.getElementById('appDialogModal');
+    if (!modal || modal.classList.contains('hidden')) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeAppDialog(_appDialogMode === 'prompt' ? null : false);
+    } else if (e.key === 'Enter' && _appDialogMode === 'prompt') {
+      e.preventDefault();
+      confirmAppDialog();
+    }
+  });
+
+  window.openPromptModal = openPromptModal;
+  window.openConfirmModal = openConfirmModal;
+  window.closeAppDialog = closeAppDialog;
+  window.confirmAppDialog = confirmAppDialog;
+
   async function backupPortfolio(id) {
     const targetID = id || selectedPortfolio;
     if (!targetID) {
@@ -1850,6 +1957,12 @@
   function initSortableTables() {
     document.querySelectorAll('table[data-sort-table]').forEach(table => {
       const tableKey = table.dataset.sortTable;
+      const tbody = table.querySelector('tbody');
+      if (tbody) {
+        Array.from(tbody.querySelectorAll('tr')).forEach((tr, idx) => {
+          if (tr.dataset.origIdx === undefined) tr.dataset.origIdx = String(idx);
+        });
+      }
       const headers = table.querySelectorAll('thead tr th');
       headers.forEach((th, colIdx) => {
         if (th.hasAttribute('data-nosort')) return;
@@ -1862,12 +1975,14 @@
         }
         th.onclick = () => {
           const prev = tableSortState[tableKey];
-          let dir = 'desc';
-          if (prev && prev.colIdx === colIdx) {
-            dir = prev.dir === 'desc' ? 'asc' : 'desc';
-          } else {
-            dir = th.classList.contains('left') ? 'asc' : 'desc';
+          const firstDir = th.classList.contains('left') ? 'asc' : 'desc';
+          const secondDir = firstDir === 'asc' ? 'desc' : 'asc';
+          if (prev && prev.colIdx === colIdx && prev.dir === secondDir) {
+            delete tableSortState[tableKey];
+            restoreTableOriginalOrder(table);
+            return;
           }
+          const dir = (prev && prev.colIdx === colIdx) ? secondDir : firstDir;
           tableSortState[tableKey] = { colIdx, dir };
           applyTableSort(table, colIdx, dir);
         };
@@ -1881,6 +1996,19 @@
     if (typeof initDraggableTables === 'function') {
       initDraggableTables();
     }
+  }
+
+  function restoreTableOriginalOrder(table) {
+    const tbody = table.querySelector('tbody');
+    if (!tbody) return;
+    table.querySelectorAll('thead tr th').forEach(th => {
+      th.classList.remove('sort-asc', 'sort-desc');
+      const icon = th.querySelector('.sort-icon');
+      if (icon) icon.textContent = '↕';
+    });
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    rows.sort((a, b) => Number(a.dataset.origIdx || 0) - Number(b.dataset.origIdx || 0));
+    rows.forEach(r => tbody.appendChild(r));
   }
 
   function applyTableSort(table, colIdx, dir) {

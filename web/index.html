@@ -196,6 +196,9 @@
         <h2 class="section-title" id="holdingsGroupTitle" data-i18n="holdings_by_division">Holdings by Division</h2>
         <div class="text-muted" style="font-size:12.5px;" id="holdingsGroupSubtitle" data-i18n="holdings_by_division_sub"></div>
       </div>
+      <div>
+        <button class="btn btn-sm" id="btnCollapseDivision" data-collapse-target="divisionCardsContainer" onclick="toggleAllCardsIn('divisionCardsContainer')">Collapse All</button>
+      </div>
     </div>
     <div id="divisionCardsContainer"></div>
 
@@ -212,6 +215,7 @@
         <div class="text-muted" style="font-size:12.5px;" data-i18n="holdings_by_account_sub">Positions grouped by individual brokerage account.</div>
       </div>
       <div id="accountHeaderActions" style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-sm" id="btnCollapseAccount" data-collapse-target="accountCardsContainer" onclick="toggleAllCardsIn('accountCardsContainer')">Collapse All</button>
         <button class="btn btn-sm" onclick="openNewAccountModal()" data-i18n="btn_new_account" title="Create a new brokerage or registered account in this portfolio">+ New Account</button>
         <button class="btn btn-sm btn-primary" onclick="openAddPositionModal()" data-i18n="btn_add_position" title="Add a new holding position to an account in this portfolio">+ Add Position</button>
       </div>
@@ -243,6 +247,7 @@
         <div class="text-muted" style="font-size:12.5px;" data-i18n="holdings_by_classification_sub">Positions grouped by account classification (RRSP, TFSA, Non-Registered, RESP).</div>
       </div>
       <div style="display:flex;align-items:center;gap:10px;">
+        <button class="btn btn-sm" id="btnCollapseClassification" data-collapse-target="classificationCardsContainer" onclick="toggleAllCardsIn('classificationCardsContainer')">Collapse All</button>
         <div id="classificationStrategyToggle" class="rebalance-switch" onclick="toggleClassificationStrategyMode()" title="Divide classification tables by strategy division targets">
           <span class="switch-dot"></span>
           <span data-i18n="toggle_divide_by_strategy">Divide by Strategy Target</span>
@@ -578,6 +583,25 @@
     <div style="display:flex;justify-content:flex-end;gap:8px;">
       <button class="btn" onclick="closeNewPortfolioModal()" data-i18n="btn_cancel">Cancel</button>
       <button class="btn btn-primary" onclick="createNewPortfolio()" data-i18n="btn_create_portfolio">Create Portfolio</button>
+    </div>
+  </div>
+</div>
+
+<!-- REUSABLE STYLED PROMPT / CONFIRM MODAL -->
+<div id="appDialogModal" class="modal-backdrop hidden" style="z-index:1100;" onclick="if(event.target===this) closeAppDialog(null)">
+  <div class="modal-card" style="max-width:420px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <h3 id="appDialogTitle" class="section-title" style="margin:0;"></h3>
+      <button type="button" class="btn btn-ghost" onclick="closeAppDialog(null)" style="font-size:16px;padding:2px 8px;" title="Close dialog (Esc)">✕</button>
+    </div>
+    <p id="appDialogMessage" class="text-muted hidden" style="margin:0 0 14px 0;font-size:13px;line-height:1.5;"></p>
+    <div id="appDialogInputWrap" class="hidden" style="margin-bottom:16px;">
+      <label id="appDialogInputLabel" class="kpi-label" style="display:block;margin-bottom:4px;"></label>
+      <input type="text" id="appDialogInput" class="input-clean" style="width:100%;" />
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button type="button" id="appDialogCancelBtn" class="btn" onclick="closeAppDialog(null)">Cancel</button>
+      <button type="button" id="appDialogConfirmBtn" class="btn btn-primary" onclick="confirmAppDialog()">OK</button>
     </div>
   </div>
 </div>
