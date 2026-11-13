@@ -146,23 +146,11 @@
       `;
     }
 
-    const legendEl = document.getElementById('allocLegend');
-    if (legendEl) {
-      legendEl.innerHTML = divs.map((d, i) => {
-        const color = DIVISION_COLORS[i % DIVISION_COLORS.length];
-        return `
-          <div class="legend-item">
-            <span class="legend-dot" style="background:${color};"></span>
-            <span style="font-weight:600;">${esc(tTerm(d.division_name))}</span>
-            <span class="text-muted">${fmtPct(d.current_ratio, 1)} / ${fmtPct(d.target_ratio, 1)}</span>
-          </div>
-        `;
-      }).join('');
-    }
-
     // Division Summary Table
     const divSummaryTable = document.getElementById('divisionSummaryTable');
     if (divSummaryTable) {
+      const isGrp = isGroupSelection(selectedPortfolio);
+      divSummaryTable.dataset.dragScope = 'divisionOrder';
       const maxRatio = Math.max(0.4, ...divs.map(d => Math.max(d.current_ratio, d.target_ratio)));
       const divSummaryRows = divs.map((d, i) => {
         const color = DIVISION_COLORS[i % DIVISION_COLORS.length];
@@ -180,9 +168,9 @@
         ` : '';
 
         return `
-          <tr>
+          <tr data-row-key="${esc(d.division_name)}">
             <td class="left">
-              <span class="legend-dot" style="background:${color};display:inline-block;margin-right:8px;"></span>
+              ${dragHandleHtml(isGrp)}<span class="legend-dot" style="background:${color};display:inline-block;margin-right:8px;"></span>
               <b>${esc(tTerm(d.division_name))}</b>
             </td>
             <td class="left"><span class="pill pill-neutral">${esc(tTerm(d.category_name))}</span></td>
@@ -244,10 +232,47 @@
     initSortableTables();
   }
 
+  function dragHandleHtml(isGrp) {
+    if (isGrp) return '';
+    return `<span class="drag-handle" title="Drag row to reorder">⋮⋮</span>`;
+  }
+
+  function orderedKeys(obj, preferred) {
+    const keys = Object.keys(obj || {});
+    if (!Array.isArray(preferred) || preferred.length === 0) return keys;
+    const keySet = new Set(keys);
+    const out = [];
+    const seen = new Set();
+    for (const k of preferred) {
+      if (keySet.has(k) && !seen.has(k)) {
+        out.push(k);
+        seen.add(k);
+      }
+    }
+    for (const k of keys) {
+      if (!seen.has(k)) {
+        out.push(k);
+        seen.add(k);
+      }
+    }
+    return out;
+  }
+
+  function renderEditableSharesCell(holdingID, shares, symbol, account, isGrp) {
+    if (isGrp) return `<span>${fmtNum(shares)}</span>`;
+    return `
+      <input type="text" inputmode="decimal" class="inline-num"
+             value="${round4(shares)}"
+             onchange="onQuickChangeShares('${holdingID}', this.value)"
+             title="${esc(t('title_edit_shares', { sym: symbol }))} (${esc(account)})" />
+    `;
+  }
+
   function renderDivisionCards() {
     const e = currentEval;
     const container = document.getElementById('divisionCardsContainer');
     if (!container || !e) return;
+    const isGrp = isGroupSelection(selectedPortfolio);
 
     container.innerHTML = (e.divisions || []).map((div, idx) => {
       const color = DIVISION_COLORS[idx % DIVISION_COLORS.length];
@@ -280,15 +305,15 @@
         const accCellHtml = `<b>${esc(r.account)}</b>`;
 
         return `
-          <tr>
-            <td class="left">${accCellHtml}</td>
+          <tr data-holding-id="${esc(r.holding_id)}">
+            <td class="left">${dragHandleHtml(isGrp)}${accCellHtml}</td>
             <td class="left">
               <b title="${esc(r.symbol_name)}">${esc(r.symbol)}</b>
               ${!rebalanceMode && r.symbol_name ? `<span class="text-muted" style="font-size:12.5px;margin-left:4px;">${esc(r.symbol_name)}</span>` : ''}
               ${compBadge}
             </td>
             <td class="text-muted">${fmtPrice(r.share_price)} <span style="font-size:11px;">${esc(r.currency)}</span></td>
-            <td>${fmtNum(r.total_holding_shares)}</td>
+            <td>${renderEditableSharesCell(r.holding_id, r.total_holding_shares, r.symbol, r.account, isGrp)}</td>
             <td><b>${fmtMoney(r.market_value_cad)}</b></td>
             <td>${fmtPct(r.current_ratio, 1)}</td>
             ${!rebalanceMode ? `
@@ -319,7 +344,7 @@
             </div>
           </div>
           <div style="overflow-x:auto;">
-            <table class="table-clean" data-sort-table="div_${esc(div.division_name)}">
+            <table class="table-clean" data-sort-table="div_${esc(div.division_name)}" data-drag-scope="holdings">
               <thead>
                 <tr>
                   <th class="left" title="Brokerage or registered account holding this position">${esc(t('th_account'))}</th>
@@ -410,15 +435,15 @@
             const compPill = s.is_composite_slice ? `<span class="pill pill-neutral" style="margin-left:6px;font-size:11px;">${fmtPct(s.division_weight, 0)} ${esc(s.symbol)}</span>` : '';
 
             return `
-              <tr>
-                <td class="left">${accCellHtml}</td>
+              <tr data-holding-id="${esc(s.holding_id)}">
+                <td class="left">${dragHandleHtml(isGrp)}${accCellHtml}</td>
                 <td class="left wrap-text">
                   <b title="${esc(s.symbol_name)}">${esc(s.symbol)}</b>
                   ${!rebalanceMode && s.symbol_name ? `<span class="text-muted" style="font-size:12.5px;margin-left:4px;">${esc(s.symbol_name)}</span>` : ''}
                   ${compPill}
                 </td>
                 <td class="text-muted">${fmtPrice(s.share_price)} <span style="font-size:11px;">${esc(s.currency)}</span></td>
-                <td>${fmtNum(s.is_composite_slice ? s.effective_shares : s.total_holding_shares)}</td>
+                <td>${renderEditableSharesCell(s.holding_id, s.total_holding_shares, s.symbol, s.account, isGrp)}</td>
                 <td><b>${fmtMoney(s.market_value_cad)}</b></td>
                 <td>${fmtPct(slicePortPct, 1)}</td>
               </tr>
@@ -444,14 +469,14 @@
               </div>
             </div>
             <div style="overflow-x:auto;margin-bottom:12px;">
-              <table class="table-clean" style="table-layout:fixed;width:100%;" data-sort-table="cls_${esc(cls.account_type)}_${esc(div.division_name)}">
+              <table class="table-clean" style="table-layout:fixed;width:100%;" data-sort-table="cls_${esc(cls.account_type)}_${esc(div.division_name)}" data-drag-scope="holdings">
                 <colgroup>
                   <col style="width:130px;">
                   <col>
                   <col style="width:110px;">
                   <col style="width:105px;">
                   <col style="width:125px;">
-                  <col style="width:90px;">
+                  <col style="width:115px;">
                 </colgroup>
                 <thead>
                   <tr>
@@ -460,7 +485,7 @@
                     <th style="width:110px;">${esc(t('th_price'))}</th>
                     <th style="width:105px;">${esc(t('th_shares'))}</th>
                     <th style="width:125px;">${esc(t('th_value_cad'))}</th>
-                    <th style="width:90px;">${esc(t('th_portfolio_pct'))}</th>
+                    <th style="width:115px;">${esc(t('th_portfolio_pct'))}</th>
                   </tr>
                 </thead>
                 <tbody>${subRowsHtml}</tbody>
@@ -477,14 +502,14 @@
             const accCellHtml = `<b>${esc(h.account)}</b>`;
             const portPct = e.current_total_cad > 0 ? (h.market_value_cad / e.current_total_cad) : 0;
             return `
-              <tr>
-                <td class="left">${accCellHtml}</td>
+              <tr data-holding-id="${esc(h.holding_id)}">
+                <td class="left">${dragHandleHtml(isGrp)}${accCellHtml}</td>
                 <td class="left wrap-text">
                   <b title="${esc(h.symbol_name)}">${esc(h.symbol)}</b>
                   ${!rebalanceMode && h.symbol_name ? `<span class="text-muted" style="font-size:12.5px;margin-left:4px;">${esc(h.symbol_name)}</span>` : ''}
                 </td>
                 <td class="text-muted">${fmtPrice(h.share_price)} <span style="font-size:11px;">${esc(h.currency)}</span></td>
-                <td>${fmtNum(h.shares)}</td>
+                <td>${renderEditableSharesCell(h.holding_id, h.shares, h.symbol, h.account, isGrp)}</td>
                 <td><b>${fmtMoney(h.market_value_cad)}</b></td>
                 <td>${fmtPct(portPct, 1)}</td>
               </tr>
@@ -501,14 +526,14 @@
               </div>
             </div>
             <div style="overflow-x:auto;margin-bottom:12px;">
-              <table class="table-clean" style="table-layout:fixed;width:100%;">
+              <table class="table-clean" style="table-layout:fixed;width:100%;" data-drag-scope="holdings">
                 <colgroup>
                   <col style="width:130px;">
                   <col>
                   <col style="width:110px;">
                   <col style="width:105px;">
                   <col style="width:125px;">
-                  <col style="width:90px;">
+                  <col style="width:115px;">
                 </colgroup>
                 <thead>
                   <tr>
@@ -517,7 +542,7 @@
                     <th style="width:110px;">${esc(t('th_price'))}</th>
                     <th style="width:105px;">${esc(t('th_shares'))}</th>
                     <th style="width:125px;">${esc(t('th_value_cad'))}</th>
-                    <th style="width:90px;">${esc(t('th_portfolio_pct'))}</th>
+                    <th style="width:115px;">${esc(t('th_portfolio_pct'))}</th>
                   </tr>
                 </thead>
                 <tbody>${unassignedRows}</tbody>
@@ -557,15 +582,15 @@
         const portPct = e.current_total_cad > 0 ? (h.market_value_cad / e.current_total_cad) : 0;
 
         return `
-          <tr>
-            <td class="left">${accCellHtml}</td>
-            <td class="left">
+          <tr data-holding-id="${esc(h.holding_id)}">
+            <td class="left">${dragHandleHtml(isGrp)}${accCellHtml}</td>
+            <td class="left wrap-text" style="max-width:260px;">
               <b title="${esc(h.symbol_name)}">${esc(h.symbol)}</b>
               ${!rebalanceMode && h.symbol_name ? `<span class="text-muted" style="font-size:12.5px;margin-left:4px;">${esc(h.symbol_name)}</span>` : ''}
             </td>
-            <td class="left">${breakdownPills}</td>
+            <td class="left wrap-text" style="line-height:1.7;">${breakdownPills}</td>
             <td class="text-muted">${fmtPrice(h.share_price)} <span style="font-size:11px;">${esc(h.currency)}</span></td>
-            <td>${fmtNum(h.shares)}</td>
+            <td>${renderEditableSharesCell(h.holding_id, h.shares, h.symbol, h.account, isGrp)}</td>
             <td><b>${fmtMoney(h.market_value_cad)}</b></td>
             <td>${fmtPct(portPct, 1)}</td>
           </tr>
@@ -586,12 +611,12 @@
             </div>
           </div>
           <div style="overflow-x:auto;">
-            <table class="table-clean" data-sort-table="cls_${esc(cls.account_type)}">
+            <table class="table-clean" data-sort-table="cls_${esc(cls.account_type)}" data-drag-scope="holdings">
               <thead>
                 <tr>
                   <th class="left">${esc(t('th_account'))}</th>
-                  <th class="left">${esc(t('th_security'))}</th>
-                  <th class="left">${esc(t('th_div_mapping'))}</th>
+                  <th class="left wrap-text" style="max-width:260px;">${esc(t('th_security'))}</th>
+                  <th class="left wrap-text">${esc(t('th_div_mapping'))}</th>
                   <th>${esc(t('th_price'))}</th>
                   <th>${esc(t('th_shares'))}</th>
                   <th>${esc(t('th_value_cad'))}</th>
@@ -687,21 +712,14 @@
         ` : `<span>${esc(currentRebalVal || '—')}</span>`;
 
         return `
-          <tr>
+          <tr data-holding-id="${esc(h.holding_id)}">
             <td class="left">
-              <b title="${esc(h.symbol_name)}">${esc(h.symbol)}</b>
+              ${dragHandleHtml(isGrp)}<b title="${esc(h.symbol_name)}">${esc(h.symbol)}</b>
               ${!rebalanceMode && h.symbol_name ? `<span class="text-muted" style="font-size:12.5px;margin-left:4px;">${esc(h.symbol_name)}</span>` : ''}
             </td>
             <td class="left">${breakdownPills}</td>
             <td class="text-muted">${fmtPrice(h.share_price)} <span style="font-size:11px;">${esc(h.currency)}</span></td>
-            <td>
-              ${!isGrp ? `
-                <input type="text" inputmode="decimal" class="inline-num"
-                       value="${round4(h.shares)}"
-                       onchange="onQuickChangeShares('${h.holding_id}', this.value)"
-                       title="${esc(t('title_edit_shares', { sym: h.symbol }))} in ${esc(acc.account)}" />
-              ` : `<span>${fmtNum(h.shares)}</span>`}
-            </td>
+            <td>${renderEditableSharesCell(h.holding_id, h.shares, h.symbol, acc.account, isGrp)}</td>
             <td><b>${fmtMoney(h.market_value_cad)}</b></td>
             <td>${fmtPct(portPct, 1)}</td>
             ${!isGrp ? `
@@ -732,7 +750,7 @@
             </div>
           </div>
           <div style="overflow-x:auto;">
-            <table class="table-clean" data-sort-table="acc_${esc(acc.account)}">
+            <table class="table-clean" data-sort-table="acc_${esc(acc.account)}" data-drag-scope="holdings">
               <thead>
                 <tr>
                   <th class="left" title="Ticker symbol and asset description">${esc(t('th_security'))}</th>
@@ -756,6 +774,8 @@
     const e = currentEval;
     const clsEl = document.getElementById('classificationSummaryTable');
     if (!clsEl || !e) return;
+    const isGrp = isGroupSelection(selectedPortfolio);
+    clsEl.dataset.dragScope = 'classificationOrder';
     clsEl.innerHTML = `
       <thead>
         <tr>
@@ -767,8 +787,8 @@
       </thead>
       <tbody>
         ${(e.classification_summaries || []).map(c => `
-          <tr>
-            <td class="left"><b>${esc(tTerm(c.name))}</b></td>
+          <tr data-row-key="${esc(c.account_type)}">
+            <td class="left">${dragHandleHtml(isGrp)}<b>${esc(tTerm(c.name))}</b></td>
             <td>${c.position_count}</td>
             <td>
               <b>${fmtMoney(afterTaxMode() ? (c.allocation_value_cad ?? c.market_value_cad) : c.market_value_cad)}</b>
@@ -786,6 +806,9 @@
     const accEl = document.getElementById('accountSummaryTable');
     if (!accEl || !e) return;
     const isGrp = isGroupSelection(selectedPortfolio);
+    accEl.dataset.dragScope = 'accountOrder';
+
+    const accTypes = (appState && appState.divisions && appState.divisions.account_types) || {};
 
     accEl.innerHTML = `
       <thead>
@@ -797,10 +820,13 @@
         </tr>
       </thead>
       <tbody>
-        ${(e.account_summaries || []).map(a => `
-          <tr>
+        ${(e.account_summaries || []).map(a => {
+          const accTypeKey = (a.account_type || 'non_registered').toLowerCase();
+          const clsLabel = (accTypes[accTypeKey] && accTypes[accTypeKey].name) || a.account_type || 'Non-Registered / Unregistered';
+          return `
+          <tr data-row-key="${esc(a.account)}">
             <td class="left">
-              <b>${esc(a.account)}</b>
+              ${dragHandleHtml(isGrp)}<b>${esc(a.account)}</b>
               ${!isGrp ? `
                 <button class="btn btn-ghost btn-sm" onclick="promptRenameAccount('${esc(a.account)}')"
                         title="${esc(t('title_rename_account', { acc: a.account }))}"
@@ -809,13 +835,15 @@
                 </button>
               ` : ''}
             </td>
+            <td class="left"><span class="pill pill-neutral">${esc(tTerm(clsLabel))}</span></td>
             <td>
               <b>${fmtMoney(afterTaxMode() ? (a.allocation_value_cad ?? a.market_value_cad) : a.market_value_cad)}</b>
               ${afterTaxMode() ? `<div class="text-muted" title="${esc(t('title_gross_value', { gross: fmtMoney(a.market_value_cad) }))}" style="font-size:11px;font-weight:500;">${esc(t('lbl_value_colon'))} ${fmtMoney(a.market_value_cad)}</div>` : ''}
             </td>
             <td>${fmtPct(a.portfolio_ratio, 1)}</td>
           </tr>
-        `).join('')}
+        `;
+        }).join('')}
       </tbody>
     `;
   }
@@ -1074,7 +1102,7 @@
           <div class="kpi-label">${esc(t('strat_direct_divs'))}</div>
           <div id="stratTotalTargetIndicator"></div>
         </div>
-        <table class="table-clean" style="margin-bottom:14px;">
+        <table class="table-clean" data-drag-scope="divisionOrder" style="margin-bottom:14px;">
           <thead>
             <tr>
               <th class="left">${esc(t('th_division'))}</th>
@@ -1083,10 +1111,12 @@
             </tr>
           </thead>
           <tbody id="stratDivisionsTbody">
-            ${Object.entries(draft.divisions).map(([name, ratio]) => `
-              <tr class="strat-div-row" data-name="${esc(name)}">
+            ${orderedKeys(draft.divisions, p.division_order).map(name => {
+              const ratio = draft.divisions[name];
+              return `
+              <tr class="strat-div-row" data-name="${esc(name)}" data-row-key="${esc(name)}">
                 <td class="left">
-                  <input type="text" class="input-clean strat-div-name-input" value="${esc(name)}" style="width:260px;font-weight:600;" />
+                  ${dragHandleHtml(false)}<input type="text" class="input-clean strat-div-name-input" value="${esc(name)}" style="width:260px;font-weight:600;" />
                 </td>
                 <td>
                   <input type="text" inputmode="decimal" class="inline-num strat-flat-pct-input" data-div="${esc(name)}" value="${round4(ratio * 100)}" oninput="updateStratTargetSum()" style="width:90px;" />%
@@ -1095,7 +1125,8 @@
                   <button class="btn btn-ghost" style="color:var(--red);padding:2px 8px;" onclick="removeStratDivision('${esc(name)}')" title="Delete target division '${esc(name)}'">✕</button>
                 </td>
               </tr>
-            `).join('')}
+            `;
+            }).join('')}
           </tbody>
         </table>
         <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap;padding:10px;background:var(--bg-subtle);border-radius:8px;">
@@ -1110,16 +1141,19 @@
           <div class="kpi-label">${esc(t('strat_step1_cats'))}</div>
           <div id="stratTotalTargetIndicator"></div>
         </div>
-        <table class="table-clean" style="margin-bottom:14px;">
+        <table class="table-clean" data-drag-scope="categoryOrder" style="margin-bottom:14px;">
           <thead><tr><th class="left">${esc(t('th_category'))}</th><th style="width:140px;">${esc(t('th_target_pct'))}</th><th class="center" style="width:80px;">${esc(t('th_remove'))}</th></tr></thead>
           <tbody>
-            ${Object.entries(draft.categories).map(([cat, ratio]) => `
-              <tr class="strat-cat-row" data-cat="${esc(cat)}">
-                <td class="left"><input type="text" class="input-clean strat-cat-name-input" value="${esc(cat)}" style="width:240px;font-weight:600;" /></td>
+            ${orderedKeys(draft.categories, p.category_order).map(cat => {
+              const ratio = draft.categories[cat];
+              return `
+              <tr class="strat-cat-row" data-cat="${esc(cat)}" data-row-key="${esc(cat)}">
+                <td class="left">${dragHandleHtml(false)}<input type="text" class="input-clean strat-cat-name-input" value="${esc(cat)}" style="width:240px;font-weight:600;" /></td>
                 <td><input type="text" inputmode="decimal" class="inline-num strat-cat-pct-input" data-cat="${esc(cat)}" value="${round4(ratio * 100)}" oninput="updateStratTargetSum()" style="width:90px;" />%</td>
                 <td class="center"><button class="btn btn-ghost" style="color:var(--red);padding:2px 8px;" onclick="removeStratCategory('${esc(cat)}')" title="Delete target category '${esc(cat)}' and all child divisions">✕</button></td>
               </tr>
-            `).join('')}
+            `;
+            }).join('')}
           </tbody>
         </table>
         <div style="display:flex;gap:8px;margin-bottom:20px;">
@@ -1128,24 +1162,26 @@
         </div>
 
         <div class="kpi-label" style="margin-bottom:6px;">${esc(t('strat_step2_divs'))}</div>
-        <table class="table-clean" style="margin-bottom:14px;">
+        <table class="table-clean" data-drag-scope="divisionOrder" style="margin-bottom:14px;">
           <thead><tr><th class="left">${esc(t('th_division'))}</th><th class="left">${esc(t('th_category'))}</th><th>${esc(t('th_split_within_cat'))}</th><th>${esc(t('th_eff_portfolio_pct'))}</th><th class="center">${esc(t('th_remove'))}</th></tr></thead>
           <tbody>
-            ${Object.entries(draft.category_splits).flatMap(([cat, splits]) =>
-              Object.entries(splits).map(([div, splitRatio]) => {
+            ${orderedKeys(draft.category_splits, p.category_order).flatMap(cat => {
+              const splits = draft.category_splits[cat] || {};
+              return orderedKeys(splits, p.division_order).map(div => {
+                const splitRatio = splits[div];
                 const catW = draft.categories[cat] || 0;
                 const eff = catW * splitRatio * 100;
                 return `
-                  <tr class="strat-split-row" data-cat="${esc(cat)}" data-div="${esc(div)}">
-                    <td class="left"><b>${esc(div)}</b></td>
+                  <tr class="strat-split-row" data-cat="${esc(cat)}" data-div="${esc(div)}" data-row-key="${esc(div)}">
+                    <td class="left">${dragHandleHtml(false)}<b>${esc(div)}</b></td>
                     <td class="left"><span class="pill pill-neutral">${esc(cat)}</span></td>
                     <td><input type="text" inputmode="decimal" class="inline-num strat-split-pct-input" data-cat="${esc(cat)}" data-div="${esc(div)}" value="${round4(splitRatio * 100)}" oninput="updateStratTargetSum()" style="width:80px;" />%</td>
                     <td class="text-muted"><b>${eff.toFixed(1)}%</b></td>
                     <td class="center"><button class="btn btn-ghost" style="color:var(--red);padding:2px 8px;" onclick="removeHierDivision('${esc(cat)}', '${esc(div)}')" title="Delete division '${esc(div)}' from category '${esc(cat)}'">✕</button></td>
                   </tr>
                 `;
-              })
-            ).join('')}
+              });
+            }).join('')}
           </tbody>
         </table>
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:20px;flex-wrap:wrap;">
@@ -1166,6 +1202,7 @@
 
     card.innerHTML = sHtml;
     updateStratTargetSum();
+    initDraggableTables();
   }
 
   function toggleEditStratNotes(editing) {
@@ -1897,5 +1934,148 @@
   }
 
   // --- Strategy, Categories, Divisions & Groups ---
+
+  function initDraggableTables() {
+    if (isGroupSelection(selectedPortfolio)) return;
+    document.querySelectorAll('table[data-drag-scope]').forEach(table => {
+      const tbody = table.querySelector('tbody');
+      if (!tbody) return;
+      const scope = table.dataset.dragScope;
+      const rows = Array.from(tbody.querySelectorAll('tr[data-holding-id], tr[data-row-key]'));
+      if (rows.length <= 1) return;
+
+      let draggedRow = null;
+
+      rows.forEach(tr => {
+        tr.draggable = true;
+
+        tr.addEventListener('mousedown', (e) => {
+          if (e.target.closest('input, select, textarea, button, a')) {
+            tr.draggable = false;
+          } else {
+            tr.draggable = true;
+          }
+        });
+
+        tr.addEventListener('mouseup', () => {
+          tr.draggable = true;
+        });
+
+        tr.addEventListener('dragstart', (e) => {
+          draggedRow = tr;
+          tr.classList.add('dragging-row');
+          if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', tr.dataset.holdingId || tr.dataset.rowKey || '');
+          }
+        });
+
+        tr.addEventListener('dragend', () => {
+          tr.classList.remove('dragging-row');
+          tbody.querySelectorAll('tr').forEach(r => r.classList.remove('drag-over-above', 'drag-over-below'));
+          draggedRow = null;
+        });
+
+        tr.addEventListener('dragover', (e) => {
+          if (!draggedRow || draggedRow === tr || draggedRow.parentElement !== tbody) return;
+          e.preventDefault();
+          if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+          const rect = tr.getBoundingClientRect();
+          const above = e.clientY < rect.top + rect.height / 2;
+          tbody.querySelectorAll('tr').forEach(r => r.classList.remove('drag-over-above', 'drag-over-below'));
+          tr.classList.add(above ? 'drag-over-above' : 'drag-over-below');
+        });
+
+        tr.addEventListener('dragleave', () => {
+          tr.classList.remove('drag-over-above', 'drag-over-below');
+        });
+
+        tr.addEventListener('drop', async (e) => {
+          if (!draggedRow || draggedRow === tr || draggedRow.parentElement !== tbody) return;
+          e.preventDefault();
+          const rect = tr.getBoundingClientRect();
+          const above = e.clientY < rect.top + rect.height / 2;
+          tr.classList.remove('drag-over-above', 'drag-over-below');
+          tbody.insertBefore(draggedRow, above ? tr : tr.nextSibling);
+
+          // Clear temporary column sort so persisted YAML order takes precedence
+          const tableKey = table.dataset.sortTable;
+          if (tableKey && typeof tableSortState === 'object') {
+            delete tableSortState[tableKey];
+            table.querySelectorAll('thead tr th').forEach(th => {
+              th.classList.remove('sort-asc', 'sort-desc');
+              const icon = th.querySelector('.sort-icon');
+              if (icon) icon.textContent = '↕';
+            });
+          }
+
+          const newKeys = Array.from(tbody.querySelectorAll('tr[data-holding-id], tr[data-row-key]'))
+            .map(r => scope === 'holdings' ? r.dataset.holdingId : r.dataset.rowKey)
+            .filter(Boolean);
+
+          await persistPortfolioOrder(scope, newKeys);
+        });
+      });
+    });
+  }
+
+  function reorderHoldingsSubset(holdings, orderedIDs) {
+    const uniqueOrder = [];
+    const seen = new Set();
+    for (const id of orderedIDs) {
+      if (!seen.has(id)) {
+        seen.add(id);
+        uniqueOrder.push(id);
+      }
+    }
+    const byID = {};
+    const targetIndices = [];
+    holdings.forEach((h, idx) => {
+      if (seen.has(h.id)) {
+        byID[h.id] = h;
+        targetIndices.push(idx);
+      }
+    });
+    if (targetIndices.length !== uniqueOrder.length) return holdings;
+    const next = holdings.slice();
+    targetIndices.forEach((slotIdx, i) => {
+      next[slotIdx] = byID[uniqueOrder[i]];
+    });
+    return next;
+  }
+
+  async function persistPortfolioOrder(scope, orderedList) {
+    if (!currentPortfolioConfig || isGroupSelection(selectedPortfolio)) return;
+    if (scope === 'holdings') {
+      currentPortfolioConfig.holdings = reorderHoldingsSubset(currentPortfolioConfig.holdings || [], orderedList);
+    } else if (scope === 'divisionOrder') {
+      currentPortfolioConfig.division_order = orderedList;
+    } else if (scope === 'accountOrder') {
+      currentPortfolioConfig.account_order = orderedList;
+    } else if (scope === 'classificationOrder') {
+      currentPortfolioConfig.classification_order = orderedList;
+    } else if (scope === 'categoryOrder') {
+      currentPortfolioConfig.category_order = orderedList;
+    } else {
+      return;
+    }
+
+    const res = await fetch('/api/portfolio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(currentPortfolioConfig)
+    });
+    if (!res.ok) {
+      showToast('Failed to save row order');
+      return;
+    }
+    currentEval = await res.json();
+    const pRes = await fetch(`/api/portfolio?id=${encodeURIComponent(selectedPortfolio)}`);
+    if (pRes.ok) {
+      currentPortfolioConfig = await pRes.json();
+    }
+    renderAll();
+    showToast('Saved row order to portfolio YAML');
+  }
 
   

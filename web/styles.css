@@ -412,6 +412,15 @@ body {
   background: var(--bg-surface);
   box-shadow: 0 1px 2px rgba(0,0,0,0.08);
 }
+.port-subtab.dragging-subtab {
+  opacity: 0.45;
+}
+.port-subtab.drag-over-left {
+  box-shadow: inset 2px 0 0 var(--primary);
+}
+.port-subtab.drag-over-right {
+  box-shadow: inset -2px 0 0 var(--primary);
+}
 
 /* Rebalance Drawer Banner (Only shown when Rebalance Mode is ON) */
 .rebalance-drawer {
@@ -694,6 +703,38 @@ body {
 .table-clean th.sort-desc .sort-icon {
   opacity: 1;
   color: var(--primary);
+}
+
+/* Row Drag & Drop Reordering */
+.drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  color: var(--text-muted);
+  opacity: 0.55;
+  margin-right: 6px;
+  font-size: 13px;
+  line-height: 1;
+  user-select: none;
+  vertical-align: middle;
+  transition: opacity 0.15s, color 0.15s;
+}
+tr:hover .drag-handle {
+  opacity: 1;
+  color: var(--text-secondary);
+}
+.drag-handle:active {
+  cursor: grabbing;
+}
+tr.dragging-row {
+  opacity: 0.45;
+}
+tr.drag-over-above td {
+  box-shadow: inset 0 2px 0 var(--primary);
+}
+tr.drag-over-below td {
+  box-shadow: inset 0 -2px 0 var(--primary);
 }
 
 /* Division Cards */

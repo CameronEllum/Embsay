@@ -44,6 +44,7 @@ async function saveAppConfigFromTab() {
   schedulePriceRefreshTimer(interval);
 
   const existingPaths = (appState && appState.config && appState.config.portfolio_paths) ? appState.config.portfolio_paths : ['portfolios', 'examples'];
+  const existingSubtabOrder = (appState && appState.config && Array.isArray(appState.config.subtab_order)) ? appState.config.subtab_order : undefined;
 
   const cfg = {
     language: lang,
@@ -52,7 +53,8 @@ async function saveAppConfigFromTab() {
     lookup_on_load: onLoad,
     drift_threshold: driftVal,
     idle_timeout_hours: idleVal,
-    portfolio_paths: existingPaths
+    portfolio_paths: existingPaths,
+    subtab_order: existingSubtabOrder
   };
 
   const res = await fetch('/api/config', {

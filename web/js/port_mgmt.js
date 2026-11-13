@@ -53,6 +53,7 @@ function renderPortMgmtTab() {
                 <a href="javascript:void(0)" onclick="selectPortfolioAndSwitch('${esc(p.id)}')" style="font-weight:600;color:var(--text);text-decoration:none;">
                   💼 ${esc(p.name)}
                 </a>
+                <button class="btn btn-ghost btn-sm" onclick="renamePortfolioFromMgmt('${esc(p.id)}', '${esc(p.name)}')" title="Rename portfolio '${esc(p.name)}'" style="padding:1px 5px;font-size:11px;margin-left:4px;opacity:0.65;">✎</button>
               </td>
               <td class="left">
                 <code style="font-size:11.5px;color:var(--text-secondary);">${esc(p.file_path || (p.source_dir ? p.source_dir + '/' + p.id + '.yaml' : 'portfolios/' + p.id + '.yaml'))}</code>
@@ -102,6 +103,7 @@ function renderPortMgmtTab() {
                 <a href="javascript:void(0)" onclick="selectPortfolioAndSwitch('${esc(g.id)}')" style="font-weight:700;color:var(--primary);text-decoration:none;">
                   ⊞ ${esc(tTerm(g.name))}
                 </a>
+                <button class="btn btn-ghost btn-sm" onclick="renamePortfolioGroup('${esc(g.id)}', '${esc(g.name || g.id)}')" title="Rename portfolio group '${esc(g.name || g.id)}'" style="padding:1px 5px;font-size:11px;margin-left:4px;opacity:0.65;">✎</button>
               </td>
               <td class="left">
                 <span class="pill pill-primary" style="margin-right:6px;">${esc(t('lbl_portfolios_count', { count: (g.members || []).length }))}</span>
@@ -222,6 +224,74 @@ function renderPortMgmtTab() {
 async function selectPortfolioAndSwitch(id) {
   selectedFilter = 'all';
   await goPortfolioView(id);
+}
+
+async function renamePortfolioFromMgmt(id, currentName) {
+  const next = prompt('Rename portfolio:', currentName || '');
+  if (next === null) return;
+  const trimmed = next.trim();
+  if (!trimmed || trimmed === currentName) return;
+  try {
+    const getRes = await fetch(`/api/portfolio?id=${encodeURIComponent(id)}`);
+    if (!getRes.ok) {
+      alert('Failed to load portfolio for renaming.');
+      return;
+    }
+    const p = await getRes.json();
+    p.name = trimmed;
+    const saveRes = await fetch('/api/portfolio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(p)
+    });
+    if (!saveRes.ok) {
+      const errData = await saveRes.json().catch(() => ({}));
+      alert(errData.error || 'Failed to rename portfolio.');
+      return;
+    }
+    const stRes = await fetch('/api/state');
+    appState = await stRes.json();
+    if (selectedPortfolio === id && typeof loadStateAndEvaluate === 'function') {
+      await loadStateAndEvaluate();
+    } else if (typeof renderTopBar === 'function') {
+      renderTopBar();
+    }
+    renderPortMgmtTab();
+    showToast(`Renamed portfolio to "${trimmed}"`);
+  } catch (err) {
+    alert('Failed to rename portfolio: ' + err.message);
+  }
+}
+
+async function renamePortfolioGroup(id, currentName) {
+  const next = prompt('Rename portfolio group:', currentName || '');
+  if (next === null) return;
+  const trimmed = next.trim();
+  if (!trimmed || trimmed === currentName) return;
+  const divs = appState.divisions || {};
+  const groups = divs.portfolio_groups || [];
+  const grp = groups.find(g => g.id === id);
+  if (!grp) return;
+  grp.name = trimmed;
+  try {
+    const res = await fetch('/api/divisions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(divs)
+    });
+    if (!res.ok) {
+      alert('Failed to rename portfolio group.');
+      return;
+    }
+    appState.divisions = await res.json();
+    const stRes = await fetch('/api/state');
+    appState = await stRes.json();
+    if (typeof renderTopBar === 'function') renderTopBar();
+    renderPortMgmtTab();
+    showToast(`Renamed portfolio group to "${trimmed}"`);
+  } catch (err) {
+    alert('Failed to rename portfolio group: ' + err.message);
+  }
 }
 
 async function deletePortfolioFromMgmt(id, name) {

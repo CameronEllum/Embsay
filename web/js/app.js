@@ -11,9 +11,9 @@
   let selectedFilter = 'all';
   let rebalanceMode = false;
   let holdingsGrouping = 'division'; // 'division' or 'classification'
-  let activeTab = 'account';
+  let activeTab = 'division';
   let currentMainView = 'portfolio';
-  let currentPortfolioSubTab = 'account';
+  let currentPortfolioSubTab = 'division';
   let currentThemeMode = 'system';
   let currentLang = 'en-CA';
   let priceRefreshTimer = null;
@@ -889,6 +889,14 @@
       if (cfg.theme_mode) {
         applyThemeMode(cfg.theme_mode);
       }
+      applySubtabOrder(cfg.subtab_order);
+      initDraggableSubtabs();
+      if (!['account', 'division', 'classification', 'strategy'].includes(initialSubtab)) {
+        const firstBtn = document.querySelector('#portfolioSubNav .port-subtab');
+        if (firstBtn && firstBtn.dataset.subtab) {
+          currentPortfolioSubTab = firstBtn.dataset.subtab;
+        }
+      }
     } catch (e) {
       console.warn('Unable to pre-load app state config:', e);
     }
@@ -1092,7 +1100,7 @@
     setLastPortfolio(targetID);
     selectedFilter = 'all';
     switchMainView('portfolio', pushHistory);
-    switchPortfolioSubTab(currentPortfolioSubTab || 'account');
+    switchPortfolioSubTab(currentPortfolioSubTab || 'division');
     await loadStateAndEvaluate();
   }
 
@@ -1100,6 +1108,7 @@
     selectedPortfolio = id;
     setLastPortfolio(id);
     selectedFilter = 'all';
+    Object.keys(tableSortState).forEach(k => delete tableSortState[k]);
     if (currentMainView !== 'portfolio') {
       switchMainView('portfolio', pushHistory);
     } else if (pushHistory) {
@@ -1412,7 +1421,7 @@
     }
 
     if (view === 'portfolio') {
-      switchPortfolioSubTab(currentPortfolioSubTab || 'account');
+      switchPortfolioSubTab(currentPortfolioSubTab || 'division');
     } else if (view === 'port-mgmt') {
       showOnlyTabPane('tab-port-mgmt');
       renderTopBar();
@@ -1428,9 +1437,107 @@
     }
   }
 
+  function applySubtabOrder(order) {
+    const nav = document.getElementById('portfolioSubNav');
+    if (!nav) return;
+    const buttons = Array.from(nav.querySelectorAll('.port-subtab'));
+    if (!Array.isArray(order) || order.length === 0) return;
+
+    const byKey = {};
+    buttons.forEach(btn => {
+      if (btn.dataset.subtab) byKey[btn.dataset.subtab] = btn;
+    });
+    const used = new Set();
+    order.forEach(key => {
+      const btn = byKey[key];
+      if (btn && !used.has(key)) {
+        nav.appendChild(btn);
+        used.add(key);
+      }
+    });
+    buttons.forEach(btn => {
+      const key = btn.dataset.subtab;
+      if (key && !used.has(key)) {
+        nav.appendChild(btn);
+        used.add(key);
+      }
+    });
+  }
+
+  function initDraggableSubtabs() {
+    const nav = document.getElementById('portfolioSubNav');
+    if (!nav || nav.dataset.dragBound === 'true') return;
+    nav.dataset.dragBound = 'true';
+
+    let draggedBtn = null;
+    nav.querySelectorAll('.port-subtab').forEach(btn => {
+      btn.draggable = true;
+      if (!btn.title) {
+        btn.title = 'Drag to reorder tabs';
+      }
+
+      btn.addEventListener('dragstart', (e) => {
+        draggedBtn = btn;
+        btn.classList.add('dragging-subtab');
+        if (e.dataTransfer) {
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', btn.dataset.subtab || '');
+        }
+      });
+
+      btn.addEventListener('dragend', () => {
+        btn.classList.remove('dragging-subtab');
+        nav.querySelectorAll('.port-subtab').forEach(b => b.classList.remove('drag-over-left', 'drag-over-right'));
+        draggedBtn = null;
+      });
+
+      btn.addEventListener('dragover', (e) => {
+        if (!draggedBtn || draggedBtn === btn) return;
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+        const rect = btn.getBoundingClientRect();
+        const left = e.clientX < rect.left + rect.width / 2;
+        nav.querySelectorAll('.port-subtab').forEach(b => b.classList.remove('drag-over-left', 'drag-over-right'));
+        btn.classList.add(left ? 'drag-over-left' : 'drag-over-right');
+      });
+
+      btn.addEventListener('dragleave', () => {
+        btn.classList.remove('drag-over-left', 'drag-over-right');
+      });
+
+      btn.addEventListener('drop', async (e) => {
+        if (!draggedBtn || draggedBtn === btn) return;
+        e.preventDefault();
+        const rect = btn.getBoundingClientRect();
+        const left = e.clientX < rect.left + rect.width / 2;
+        nav.querySelectorAll('.port-subtab').forEach(b => b.classList.remove('drag-over-left', 'drag-over-right'));
+        nav.insertBefore(draggedBtn, left ? btn : btn.nextSibling);
+
+        const newOrder = Array.from(nav.querySelectorAll('.port-subtab'))
+          .map(b => b.dataset.subtab)
+          .filter(Boolean);
+
+        if (appState && appState.config) {
+          appState.config.subtab_order = newOrder;
+          const res = await fetch('/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(appState.config)
+          });
+          if (res.ok) {
+            appState = await res.json();
+            showToast('Saved tab order to config/config.yaml');
+          } else {
+            showToast('Failed to save tab order');
+          }
+        }
+      });
+    });
+  }
+
   function switchPortfolioSubTab(subtab) {
-    if (subtab === 'overview') subtab = 'account';
-    subtab = subtab || currentPortfolioSubTab || 'account';
+    if (subtab === 'overview') subtab = 'division';
+    subtab = subtab || currentPortfolioSubTab || 'division';
     currentPortfolioSubTab = subtab;
     activeTab = subtab;
     document.querySelectorAll('.port-subtab').forEach(btn => {
@@ -1771,6 +1878,9 @@
         applyTableSort(table, saved.colIdx, saved.dir);
       }
     });
+    if (typeof initDraggableTables === 'function') {
+      initDraggableTables();
+    }
   }
 
   function applyTableSort(table, colIdx, dir) {

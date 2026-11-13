@@ -418,6 +418,9 @@ func (s *Service) Evaluate(portfolioID string, filterAccount string) (model.Port
 		sort.Slice(divs, func(i, j int) bool { return divs[i].Order < divs[j].Order })
 	}
 
+	cats = orderByPreference(cats, p.CategoryOrder, func(c model.CategoryDef) string { return c.Name })
+	divs = orderByPreference(divs, p.DivisionOrder, func(d model.DivisionDef) string { return d.Name })
+
 	divByName := make(map[string]model.DivisionDef, len(divs))
 	for _, d := range divs {
 		divByName[d.Name] = d
@@ -817,8 +820,16 @@ func (s *Service) Evaluate(portfolioID string, filterAccount string) (model.Port
 	}
 
 	// Account Summaries, Classification Summaries & Registered vs Unregistered Summaries
-	accountSummaries := computeAccountSummaries(rawHoldings, divCfg.AccountTypes, currentTotalCAD)
-	classificationSummaries := computeClassificationSummaries(rawHoldings, divCfg.AccountTypes, currentTotalCAD)
+	accountSummaries := orderByPreference(
+		computeAccountSummaries(rawHoldings, divCfg.AccountTypes, currentTotalCAD),
+		p.AccountOrder,
+		func(a model.AccountSummary) string { return a.Account },
+	)
+	classificationSummaries := orderByPreference(
+		computeClassificationSummaries(rawHoldings, divCfg.AccountTypes, currentTotalCAD),
+		p.ClassificationOrder,
+		func(c model.ClassificationSummary) string { return c.AccountType },
+	)
 	regVsUnreg := computeRegVsUnregSummaries(evaluatedDivisions, cats, catTargetRatios, divCfg.AccountTypes)
 
 	checksPassed := math.Abs(totalCalculatedBuyDiffCAD-amountToBuyCAD) < 1.0
@@ -1144,6 +1155,11 @@ func (s *Service) RenameAccount(portfolioID string, oldName string, newName stri
 				p.Holdings[i].AccountType = inferred
 			}
 			updated++
+		}
+	}
+	for i := range p.AccountOrder {
+		if p.AccountOrder[i] == oldName {
+			p.AccountOrder[i] = newName
 		}
 	}
 	if updated > 0 {
@@ -2261,6 +2277,32 @@ func computeRegVsUnregSummaries(divs []model.DivisionEvaluation, cats []model.Ca
 		buildGroup("Registered (RRSP + TFSA)", regTotal, regCatVal),
 		buildGroup("Unregistered (Taxable)", unregTotal, unregCatVal),
 	}
+}
+
+func orderByPreference[T any](items []T, preferredKeys []string, keyFn func(T) string) []T {
+	if len(preferredKeys) == 0 || len(items) <= 1 {
+		return items
+	}
+	byKey := make(map[string]T, len(items))
+	for _, item := range items {
+		byKey[keyFn(item)] = item
+	}
+	used := make(map[string]bool, len(items))
+	out := make([]T, 0, len(items))
+	for _, k := range preferredKeys {
+		if item, ok := byKey[k]; ok && !used[k] {
+			out = append(out, item)
+			used[k] = true
+		}
+	}
+	for _, item := range items {
+		k := keyFn(item)
+		if !used[k] {
+			out = append(out, item)
+			used[k] = true
+		}
+	}
+	return out
 }
 
 func safeDiv(num, den float64) float64 {

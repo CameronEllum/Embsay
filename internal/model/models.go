@@ -10,6 +10,7 @@ type AppConfig struct {
 	PortfolioPaths []string `yaml:"portfolio_paths,omitempty" json:"portfolio_paths"`
 	DriftThreshold   float64  `yaml:"drift_threshold,omitempty" json:"drift_threshold"`     // e.g. 0.01 for 1%
 	IdleTimeoutHours float64  `yaml:"idle_timeout_hours,omitempty" json:"idle_timeout_hours"` // e.g. 1.0 for 1 hour idle auto-shutdown
+	SubtabOrder      []string `yaml:"subtab_order,omitempty" json:"subtab_order,omitempty"`
 }
 
 // --- 1. divisions.yaml ---
@@ -164,6 +165,10 @@ type PortfolioConfig struct {
 	// allocation/rebalancing targets. Trade amounts and shares remain gross CAD.
 	AfterTaxAllocation    bool            `yaml:"after_tax_allocation,omitempty" json:"after_tax_allocation"`
 	RRSPWithdrawalTaxRate *float64        `yaml:"rrsp_withdrawal_tax_rate,omitempty" json:"rrsp_withdrawal_tax_rate,omitempty"`
+	AccountOrder          []string        `yaml:"account_order,omitempty" json:"account_order,omitempty"`
+	ClassificationOrder   []string        `yaml:"classification_order,omitempty" json:"classification_order,omitempty"`
+	DivisionOrder         []string        `yaml:"division_order,omitempty" json:"division_order,omitempty"`
+	CategoryOrder         []string        `yaml:"category_order,omitempty" json:"category_order,omitempty"`
 	Strategy              StrategyConfig  `yaml:"strategy" json:"strategy"`
 	Holdings              []HoldingConfig `yaml:"holdings" json:"holdings"`
 }
