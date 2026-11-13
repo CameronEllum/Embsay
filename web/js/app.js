@@ -1650,6 +1650,7 @@
     }
 
     cancelBtn.textContent = opts.cancelLabel || (typeof t === 'function' ? t('btn_cancel') : 'Cancel');
+    cancelBtn.classList.toggle('hidden', _appDialogMode === 'info');
     confirmBtn.textContent = opts.confirmLabel || 'OK';
     confirmBtn.className = opts.danger ? 'btn btn-danger' : 'btn btn-primary';
 
@@ -1695,6 +1696,18 @@
     return _openAppDialog({ ...opts, mode: 'confirm' });
   }
 
+  function openInfoModal(opts = {}) {
+    return _openAppDialog({ ...opts, mode: 'info' });
+  }
+
+  function openDisclaimerModal() {
+    openInfoModal({
+      title: 'Disclaimer',
+      message: 'Embsay is a portfolio visualization and simulation tool intended for informational and educational purposes only. It does not provide financial, investment, legal, or tax advice. Calculations such as after-tax discounting and foreign withholding tax drag are estimates based on user-provided inputs and simplified models. Consult a qualified professional accountant or fee-only financial planner for your specific tax and investment situation.',
+      confirmLabel: 'Close'
+    });
+  }
+
   document.addEventListener('keydown', (e) => {
     const modal = document.getElementById('appDialogModal');
     if (!modal || modal.classList.contains('hidden')) return;
@@ -1709,6 +1722,8 @@
 
   window.openPromptModal = openPromptModal;
   window.openConfirmModal = openConfirmModal;
+  window.openInfoModal = openInfoModal;
+  window.openDisclaimerModal = openDisclaimerModal;
   window.closeAppDialog = closeAppDialog;
   window.confirmAppDialog = confirmAppDialog;
 
