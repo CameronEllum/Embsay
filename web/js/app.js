@@ -369,9 +369,10 @@
       btn_report_issue_title: 'File a bug report or feature request on GitHub',
       btn_quit: 'Quit',
       btn_quit_title: 'Quit and close the Embsay application',
-      confirm_quit: 'Are you sure you want to quit Embsay?',
-      app_stopped_title: 'Embsay has shut down',
-      app_stopped_desc: 'The local server is no longer running. You may safely close this browser tab.',
+      confirm_quit_title: 'Quit Embsay?',
+      confirm_quit: 'This stops the local server and closes this tab\'s connection. Any pending edits are saved first.',
+      app_stopped_title: 'Embsay has stopped',
+      app_stopped_desc: 'The local server shut down. You can close this tab.',
       lbl_idle_timeout: 'Idle Auto-Close (Hours)'
     },
     'fr-CA': {
@@ -723,9 +724,10 @@
       btn_report_issue_title: 'Créer un ticket ou signaler un problème sur GitHub',
       btn_quit: 'Quitter',
       btn_quit_title: 'Quitter et fermer l’application Embsay',
-      confirm_quit: 'Êtes-vous certain de vouloir quitter Embsay ?',
+      confirm_quit_title: 'Quitter Embsay ?',
+      confirm_quit: 'Ceci arrête le serveur local et ferme la connexion de cet onglet. Les modifications en attente sont d’abord enregistrées.',
       app_stopped_title: 'Embsay s’est arrêté',
-      app_stopped_desc: 'Le serveur local ne fonctionne plus. Vous pouvez fermer cet onglet en toute sécurité.',
+      app_stopped_desc: 'Le serveur local s’est arrêté. Vous pouvez fermer cet onglet.',
       lbl_idle_timeout: 'Fermeture automatique si inactif (heures)'
     }
   };
@@ -2195,17 +2197,26 @@
 
   // --- Quit Application ---
   async function quitApplication() {
-    const msg = t('confirm_quit') || 'Are you sure you want to quit Embsay?';
-    if (!confirm(msg)) {
-      return;
+    const ok = await openConfirmModal({
+      title: t('confirm_quit_title') || 'Quit Embsay?',
+      message: t('confirm_quit') || 'This stops the local server and closes this tab\'s connection. Any pending edits are saved first.',
+      confirmLabel: t('btn_quit') || 'Quit',
+      danger: true
+    });
+    if (!ok) return;
+
+    // Flush any focused inline edit before stopping the server
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+      await new Promise(resolve => setTimeout(resolve, 150));
     }
+
     try {
       await fetch('/api/quit', { method: 'POST' });
     } catch (e) {
       // Server will shut down quickly
     }
     showShutdownOverlay();
-    attemptCloseTab();
   }
 
   function showShutdownOverlay() {

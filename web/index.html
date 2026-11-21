@@ -526,6 +526,25 @@
       </div>
       <!-- Floating Autocomplete Suggestions -->
       <div id="modalAddPosSuggestions" class="hidden" style="position:absolute;left:0;right:0;top:100%;z-index:1000;background:var(--bg-surface);border:1px solid var(--border);border-radius:6px;max-height:220px;overflow-y:auto;box-shadow:0 6px 18px rgba(0,0,0,0.18);margin-top:4px;"></div>
+      <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12.5px;color:var(--text-secondary);cursor:pointer;">
+        <input type="checkbox" id="modalAddPosManualToggle" onchange="onToggleManualAssetMode()" />
+        <span>Manual / Fixed-Price Asset (cash, property, GIC, or liability)</span>
+      </label>
+    </div>
+
+    <!-- Manual / Fixed-Price Asset Fields -->
+    <div id="modalAddPosManualFields" class="hidden" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+      <div style="flex:2;min-width:180px;">
+        <label class="kpi-label" style="display:block;margin-bottom:4px;">Description</label>
+        <input type="text" id="modalAddPosManualName" class="input-clean" style="width:100%;" placeholder="e.g. Emergency Savings, Mortgage" oninput="onManualAssetInput()" />
+      </div>
+      <div style="width:100px;">
+        <label class="kpi-label" style="display:block;margin-bottom:4px;">Currency</label>
+        <select id="modalAddPosManualCurrency" class="select-clean" style="width:100%;" onchange="onManualAssetInput()">
+          <option value="CAD">CAD</option>
+          <option value="USD">USD</option>
+        </select>
+      </div>
     </div>
 
     <!-- Security Details Preview Card -->
@@ -546,7 +565,7 @@
     <!-- Shares Input & Live Calculation -->
     <div style="display:flex;gap:12px;margin-bottom:14px;">
       <div style="flex:1;">
-        <label class="kpi-label" style="display:block;margin-bottom:4px;">Shares / Principal</label>
+        <label id="modalAddPosSharesLabel" class="kpi-label" style="display:block;margin-bottom:4px;">Shares / Principal</label>
         <input type="text" inputmode="decimal" id="modalAddPosSharesInput" class="input-clean" style="width:100%;text-align:right;font-size:16px;font-weight:600;" placeholder="0" oninput="updateModalEstimatedValue()" onkeydown="if(event.key==='Enter') submitAddPositionModal()" />
       </div>
       <div style="flex:1;">
@@ -559,6 +578,59 @@
     <div style="display:flex;justify-content:flex-end;gap:8px;">
       <button type="button" class="btn" onclick="closeAddPositionModal()" title="Cancel and close dialog">Cancel</button>
       <button type="button" class="btn btn-primary" id="modalAddPosSubmitBtn" onclick="submitAddPositionModal()" title="Add or update this position in the portfolio">+ Add Position</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT POSITION MODAL -->
+<div id="editPositionModal" class="modal-backdrop hidden" onclick="if(event.target===this) closeEditPositionModal()">
+  <div class="modal-card" style="max-width:460px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <h3 class="section-title" style="margin:0;" id="modalEditPosTitle">Edit Position</h3>
+      <button type="button" class="btn btn-ghost" onclick="closeEditPositionModal()" style="font-size:16px;padding:2px 8px;" title="Close dialog (Esc)">✕</button>
+    </div>
+
+    <div style="margin-bottom:12px;">
+      <label class="kpi-label" style="display:block;margin-bottom:4px;">Account</label>
+      <select id="modalEditPosAccount" class="select-clean" style="width:100%;"></select>
+    </div>
+
+    <div id="modalEditPosManualFields" class="hidden" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+      <div style="flex:2;min-width:160px;">
+        <label class="kpi-label" style="display:block;margin-bottom:4px;">Description</label>
+        <input type="text" id="modalEditPosManualName" class="input-clean" style="width:100%;" />
+      </div>
+      <div style="width:100px;">
+        <label class="kpi-label" style="display:block;margin-bottom:4px;">Currency</label>
+        <select id="modalEditPosManualCurrency" class="select-clean" style="width:100%;">
+          <option value="CAD">CAD</option>
+          <option value="USD">USD</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px;margin-bottom:12px;">
+      <div style="flex:1;">
+        <label id="modalEditPosSharesLabel" class="kpi-label" style="display:block;margin-bottom:4px;">Shares</label>
+        <input type="text" inputmode="decimal" id="modalEditPosShares" class="input-clean" style="width:100%;text-align:right;font-weight:600;" onkeydown="if(event.key==='Enter') submitEditPositionModal()" />
+      </div>
+      <div style="flex:1;">
+        <label class="kpi-label" style="display:block;margin-bottom:4px;">Division Mapping</label>
+        <select id="modalEditPosDivision" class="select-clean" style="width:100%;"></select>
+      </div>
+    </div>
+
+    <div style="margin-bottom:18px;">
+      <label class="kpi-label" style="display:block;margin-bottom:4px;">Note (optional)</label>
+      <input type="text" id="modalEditPosNote" class="input-clean" style="width:100%;" placeholder="Optional note..." onkeydown="if(event.key==='Enter') submitEditPositionModal()" />
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+      <button type="button" class="btn btn-danger" onclick="deleteFromEditPositionModal()">✕ Delete Position</button>
+      <div style="display:flex;gap:8px;">
+        <button type="button" class="btn" onclick="closeEditPositionModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="submitEditPositionModal()">Save Changes</button>
+      </div>
     </div>
   </div>
 </div>
@@ -614,15 +686,25 @@
 
 <div id="toast"></div>
 
-<!-- APPLICATION SHUTDOWN OVERLAY -->
-<div id="shutdownOverlay" class="modal-backdrop hidden" style="z-index:99999;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);align-items:center;justify-content:center;">
-  <div class="modal-card" style="max-width:480px;text-align:center;padding:36px 28px;">
-    <div style="font-size:48px;margin-bottom:16px;">⏻</div>
-    <h2 style="margin:0 0 10px 0;" data-i18n="app_stopped_title">Embsay has shut down</h2>
-    <p id="shutdownDesc" class="text-muted" style="margin-bottom:0;line-height:1.5;" data-i18n="app_stopped_desc">
-      The local server is no longer running. You may safely close this browser tab.
-    </p>
+<!-- CLEAN SHUTDOWN SCREEN -->
+<div id="shutdownOverlay" class="shutdown-screen hidden" role="status">
+  <div class="shutdown-mark" aria-hidden="true">
+    <svg width="64" height="64" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="32" height="32" rx="8" fill="url(#embsayShutdownGrad)"/>
+      <defs>
+        <linearGradient id="embsayShutdownGrad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#dc2626"/>
+          <stop offset="100%" stop-color="#991b1b"/>
+        </linearGradient>
+      </defs>
+      <path d="M 19.11 4.41 A 12 12 0 0 1 24.49 24.49" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+      <path d="M 22 26.39 A 12 12 0 0 1 4.41 19.11" stroke="#fca5a5" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+      <path d="M 4 16 A 12 12 0 0 1 16 4" stroke="rgba(255,255,255,0.45)" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+      <path d="M 16.44 26.25 L 16.22 22.07 A 0.46 0.46 0 0 1 16.75 21.6 L 20.91 22.33 L 20.35 20.78 A 0.31 0.31 0 0 1 20.45 20.43 L 25.0 16.74 L 23.97 16.26 A 0.31 0.31 0 0 1 23.81 15.88 L 24.71 13.11 L 22.09 13.67 A 0.31 0.31 0 0 1 21.73 13.49 L 21.23 12.29 L 19.18 14.49 A 0.31 0.31 0 0 1 18.64 14.21 L 19.63 9.12 L 18.05 10.04 A 0.31 0.31 0 0 1 17.61 9.9 L 16.0 6.75 L 14.39 9.9 A 0.31 0.31 0 0 1 13.95 10.04 L 12.37 9.12 L 13.36 14.21 A 0.31 0.31 0 0 1 12.82 14.49 L 10.77 12.29 L 10.27 13.49 A 0.31 0.31 0 0 1 9.91 13.67 L 7.29 13.11 L 8.19 15.88 A 0.31 0.31 0 0 1 8.03 16.26 L 7.0 16.74 L 11.55 20.43 A 0.31 0.31 0 0 1 11.65 20.78 L 11.09 22.33 L 15.25 21.6 A 0.46 0.46 0 0 1 15.78 22.07 L 15.56 26.25 Z" fill="#ffffff"/>
+    </svg>
   </div>
+  <h1 data-i18n="app_stopped_title">Embsay has stopped</h1>
+  <p id="shutdownDesc" data-i18n="app_stopped_desc">The local server shut down. You can close this tab.</p>
 </div>
 
   <!-- Modular Application Scripts -->

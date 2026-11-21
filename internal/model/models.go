@@ -169,8 +169,15 @@ type PortfolioConfig struct {
 	ClassificationOrder   []string        `yaml:"classification_order,omitempty" json:"classification_order,omitempty"`
 	DivisionOrder         []string        `yaml:"division_order,omitempty" json:"division_order,omitempty"`
 	CategoryOrder         []string        `yaml:"category_order,omitempty" json:"category_order,omitempty"`
+	Accounts              []AccountConfig `yaml:"accounts,omitempty" json:"accounts,omitempty"`
 	Strategy              StrategyConfig  `yaml:"strategy" json:"strategy"`
 	Holdings              []HoldingConfig `yaml:"holdings" json:"holdings"`
+}
+
+type AccountConfig struct {
+	Name                   string `yaml:"name" json:"name"`
+	AccountType            string `yaml:"account_type,omitempty" json:"account_type,omitempty"`
+	ExcludeFromRebalancing bool   `yaml:"exclude_from_rebalancing,omitempty" json:"exclude_from_rebalancing,omitempty"`
 }
 
 type StrategyConfig struct {
@@ -189,6 +196,7 @@ type HoldingConfig struct {
 	Shares             float64            `yaml:"shares" json:"shares"`
 	Division           string             `yaml:"division,omitempty" json:"division,omitempty"`
 	Divisions          map[string]float64 `yaml:"divisions,omitempty" json:"divisions,omitempty"`
+	NoDivision         bool               `yaml:"no_division,omitempty" json:"no_division,omitempty"`
 	RebalanceDivisions []string           `yaml:"rebalance_divisions,omitempty" json:"rebalance_divisions,omitempty"`
 	ProposedShares     float64            `yaml:"proposed_shares,omitempty" json:"proposed_shares,omitempty"`
 	Note               string             `yaml:"note,omitempty" json:"note,omitempty"`
@@ -221,6 +229,9 @@ type PortfolioEvaluation struct {
 	GrossAfterTotalCAD          float64                 `json:"gross_after_total_cad"`
 	GrossProposedBuyTotalCAD    float64                 `json:"gross_proposed_buy_total_cad"`
 	EstimatedRRSPDeferredTaxCAD float64                 `json:"estimated_rrsp_deferred_tax_cad"`
+	NetWorthCAD                 float64                 `json:"net_worth_cad"`
+	GrossNetWorthCAD            float64                 `json:"gross_net_worth_cad"`
+	HasExcludedAccounts         bool                    `json:"has_excluded_accounts,omitempty"`
 	RebalanceWarnings           []string                `json:"rebalance_warnings,omitempty"`
 	DataWarnings                []string                `json:"data_warnings,omitempty"`
 	WeightedMER                 float64                 `json:"weighted_mer"`
@@ -320,10 +331,11 @@ type EvaluatedSlice struct {
 }
 
 type AccountSummary struct {
-	Account        string           `json:"account"`
-	AccountType    string           `json:"account_type"`
-	Registered     bool             `json:"registered"`
-	MarketValueCAD float64          `json:"market_value_cad"`
+	Account                 string           `json:"account"`
+	AccountType             string           `json:"account_type"`
+	Registered              bool             `json:"registered"`
+	ExcludedFromRebalancing bool             `json:"excluded_from_rebalancing,omitempty"`
+	MarketValueCAD          float64          `json:"market_value_cad"`
 	PortfolioRatio float64          `json:"portfolio_ratio"`
 	PositionCount  int              `json:"position_count"`
 	Holdings       []HoldingSummary `json:"holdings"`

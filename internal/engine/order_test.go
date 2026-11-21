@@ -198,4 +198,59 @@ holdings:
 	if eval2.AccountSummaries[0].Holdings[0].Symbol != "VAB" || eval2.AccountSummaries[0].Holdings[1].Symbol != "ZCN" {
 		t.Fatalf("reloaded TFSA holding order = %+v", eval2.AccountSummaries[0].Holdings)
 	}
+
+	// Add an empty account without holdings, order it first, and rename it
+	cfg2, err := svc2.GetPortfolioConfig("ordered")
+	if err != nil {
+		t.Fatalf("GetPortfolioConfig: %v", err)
+	}
+	cfg2.Accounts = []model.AccountConfig{{Name: "Empty RESP", AccountType: "tfsa"}}
+	cfg2.AccountOrder = []string{"Empty RESP", "TFSA", "RRSP", "Taxable"}
+	if err := svc2.UpdatePortfolio(cfg2); err != nil {
+		t.Fatalf("UpdatePortfolio with empty account: %v", err)
+	}
+	if _, err := svc2.RenameAccount("ordered", "Empty RESP", "Kids RESP"); err != nil {
+		t.Fatalf("RenameAccount empty account: %v", err)
+	}
+
+	st3, err := store.NewStore(base)
+	if err != nil {
+		t.Fatalf("reload NewStore 3: %v", err)
+	}
+	svc3 := NewService(st3, datasource.NewFetcher())
+	eval3, err := svc3.Evaluate("ordered", "all")
+	if err != nil {
+		t.Fatalf("reload Evaluate 3: %v", err)
+	}
+	if len(eval3.AccountSummaries) != 4 || eval3.AccountSummaries[0].Account != "Kids RESP" || eval3.AccountSummaries[0].PositionCount != 0 {
+		t.Fatalf("unexpected account summaries with empty account: %+v", eval3.AccountSummaries)
+	}
+
+	// Exclude Kids RESP from rebalancing and add a fixed-price savings holding ($10,000) to it
+	cfg3, err := svc3.GetPortfolioConfig("ordered")
+	if err != nil {
+		t.Fatalf("GetPortfolioConfig 3: %v", err)
+	}
+	cfg3.Accounts[0].ExcludeFromRebalancing = true
+	cfg3.Holdings = append(cfg3.Holdings, model.HoldingConfig{
+		Account: "Kids RESP",
+		Symbol:  "GIC_CAD",
+		Shares:  10000,
+	})
+	if err := svc3.UpdatePortfolio(cfg3); err != nil {
+		t.Fatalf("UpdatePortfolio excluded account: %v", err)
+	}
+	eval4, err := svc3.Evaluate("ordered", "all")
+	if err != nil {
+		t.Fatalf("Evaluate 4: %v", err)
+	}
+	if !eval4.HasExcludedAccounts {
+		t.Fatalf("expected HasExcludedAccounts = true")
+	}
+	if eval4.NetWorthCAD <= eval4.CurrentTotalCAD {
+		t.Fatalf("expected NetWorthCAD (%v) > CurrentTotalCAD (%v)", eval4.NetWorthCAD, eval4.CurrentTotalCAD)
+	}
+	if !eval4.AccountSummaries[0].ExcludedFromRebalancing {
+		t.Fatalf("expected Kids RESP ExcludedFromRebalancing = true")
+	}
 }

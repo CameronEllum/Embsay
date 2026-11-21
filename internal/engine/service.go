@@ -263,6 +263,11 @@ func (s *Service) GetPortfolioConfig(portfolioID string) (model.PortfolioConfig,
 				combined.Strategy = mp.Strategy
 			}
 			combined.AmountToBuy += mp.AmountToBuy
+			for _, a := range mp.Accounts {
+				ac := a
+				ac.Name = mp.Name + " · " + a.Name
+				combined.Accounts = append(combined.Accounts, ac)
+			}
 			for _, h := range mp.Holdings {
 				hc := h
 				hc.ID = mID + ":" + h.ID
@@ -441,6 +446,15 @@ func (s *Service) Evaluate(portfolioID string, filterAccount string) (model.Port
 	}
 	filteredHoldings := filterHoldings(p.Holdings, filterAccount, divCfg.AccountTypes)
 
+	excludedAccSet := make(map[string]bool)
+	hasExcludedAccounts := false
+	for _, a := range p.Accounts {
+		if a.ExcludeFromRebalancing {
+			excludedAccSet[a.Name] = true
+			hasExcludedAccounts = true
+		}
+	}
+
 	// Build raw holdings summary and slice each holding across its divisions
 	slicesByDiv := make(map[string][]model.EvaluatedSlice, len(divs))
 	var rawHoldings []model.HoldingSummary
@@ -471,8 +485,10 @@ func (s *Service) Evaluate(portfolioID string, filterAccount string) (model.Port
 		tax := resolveTax(h.Symbol, h.AccountType, symDef, cacheCfg, dsCfg)
 		divWeights := resolveDivisionWeights(h.Symbol, symDef, cacheCfg)
 
-		// Check if holding defines an explicit division or divisions map matching active divisions
-		if h.Division != "" {
+		// Check if holding explicitly clears divisions or defines an explicit division override
+		if h.NoDivision {
+			divWeights = map[string]float64{}
+		} else if h.Division != "" {
 			if _, ok := divByName[h.Division]; ok {
 				divWeights = map[string]float64{h.Division: 1.0}
 			}
@@ -546,6 +562,9 @@ func (s *Service) Evaluate(portfolioID string, filterAccount string) (model.Port
 			EstimatedDeferredTaxCAD: grossHoldingValue * (1 - holdingFactor),
 		})
 
+		if excludedAccSet[h.Account] {
+			continue
+		}
 		for _, d := range divs {
 			w, ok := divWeights[d.Name]
 			if !ok || w <= 0 {
@@ -819,9 +838,20 @@ func (s *Service) Evaluate(portfolioID string, filterAccount string) (model.Port
 		})
 	}
 
+	netWorthCAD := 0.0
+	grossNetWorthCAD := 0.0
+	for _, rh := range rawHoldings {
+		netWorthCAD += rh.AllocationValueCAD
+		grossNetWorthCAD += rh.MarketValueCAD
+	}
+
 	// Account Summaries, Classification Summaries & Registered vs Unregistered Summaries
+	accTotalDenominator := currentTotalCAD
+	if hasExcludedAccounts {
+		accTotalDenominator = netWorthCAD
+	}
 	accountSummaries := orderByPreference(
-		computeAccountSummaries(rawHoldings, divCfg.AccountTypes, currentTotalCAD),
+		computeAccountSummaries(rawHoldings, p.Accounts, excludedAccSet, divCfg.AccountTypes, accTotalDenominator),
 		p.AccountOrder,
 		func(a model.AccountSummary) string { return a.Account },
 	)
@@ -864,6 +894,9 @@ func (s *Service) Evaluate(portfolioID string, filterAccount string) (model.Port
 		GrossAfterTotalCAD:          grossAfterTotalCAD,
 		GrossProposedBuyTotalCAD:    grossProposedBuyTotalCAD,
 		EstimatedRRSPDeferredTaxCAD: grossCurrentTotalCAD - currentTotalCAD,
+		NetWorthCAD:                 netWorthCAD,
+		GrossNetWorthCAD:            grossNetWorthCAD,
+		HasExcludedAccounts:         hasExcludedAccounts,
 		RebalanceWarnings:           rebalanceWarnings,
 		DataWarnings:                checkMissingETFData(filteredHoldings, symCfg, cacheCfg, dsCfg),
 		Categories:                  evaluatedCategories,
@@ -1153,6 +1186,15 @@ func (s *Service) RenameAccount(portfolioID string, oldName string, newName stri
 			p.Holdings[i].Account = newName
 			if inferred != "non_registered" || p.Holdings[i].AccountType == "" {
 				p.Holdings[i].AccountType = inferred
+			}
+			updated++
+		}
+	}
+	for i := range p.Accounts {
+		if p.Accounts[i].Name == oldName {
+			p.Accounts[i].Name = newName
+			if inferred != "non_registered" || p.Accounts[i].AccountType == "" {
+				p.Accounts[i].AccountType = inferred
 			}
 			updated++
 		}
@@ -2151,7 +2193,7 @@ func filterHoldings(holdings []model.HoldingConfig, filter string, accTypes map[
 	return out
 }
 
-func computeAccountSummaries(rawHoldings []model.HoldingSummary, accTypes map[string]model.AccountTypeDef, totalCAD float64) []model.AccountSummary {
+func computeAccountSummaries(rawHoldings []model.HoldingSummary, definedAccounts []model.AccountConfig, excludedAccSet map[string]bool, accTypes map[string]model.AccountTypeDef, totalCAD float64) []model.AccountSummary {
 	byAcc := make(map[string]*model.AccountSummary)
 	var order []string
 	for _, h := range rawHoldings {
@@ -2162,9 +2204,10 @@ func computeAccountSummaries(rawHoldings []model.HoldingSummary, accTypes map[st
 				reg = def.Registered
 			}
 			sum = &model.AccountSummary{
-				Account:     h.Account,
-				AccountType: h.AccountType,
-				Registered:  reg,
+				Account:                 h.Account,
+				AccountType:             h.AccountType,
+				Registered:              reg,
+				ExcludedFromRebalancing: excludedAccSet[h.Account],
 			}
 			byAcc[h.Account] = sum
 			order = append(order, h.Account)
@@ -2175,6 +2218,30 @@ func computeAccountSummaries(rawHoldings []model.HoldingSummary, accTypes map[st
 		sum.AllocationValueCAD += h.AllocationValueCAD
 		sum.AfterTaxValueCAD += h.AfterTaxValueCAD
 		sum.EstimatedDeferredTaxCAD += h.EstimatedDeferredTaxCAD
+	}
+	for _, a := range definedAccounts {
+		name := strings.TrimSpace(a.Name)
+		if name == "" {
+			continue
+		}
+		if _, ok := byAcc[name]; ok {
+			continue
+		}
+		accType := strings.TrimSpace(a.AccountType)
+		if accType == "" {
+			accType = store.InferAccountType(name, accTypes)
+		}
+		reg := false
+		if def, hasDef := accTypes[accType]; hasDef {
+			reg = def.Registered
+		}
+		byAcc[name] = &model.AccountSummary{
+			Account:                 name,
+			AccountType:             accType,
+			Registered:              reg,
+			ExcludedFromRebalancing: excludedAccSet[name] || a.ExcludeFromRebalancing,
+		}
+		order = append(order, name)
 	}
 	var out []model.AccountSummary
 	for _, acc := range order {

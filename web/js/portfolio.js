@@ -25,15 +25,23 @@
     const catSummary = (e.categories || []).map(c => `${fmtPct(c.current_ratio, 1)} ${tTerm(c.category_name)}`).join(' · ');
     const catTargetSummary = (e.categories || []).map(c => `${fmtPct(c.target_ratio, 0)} ${tTerm(c.category_name)}`).join(' / ');
 
+    const hasExcluded = !!e.has_excluded_accounts;
+    const netWorthVal = hasExcluded ? (typeof e.net_worth_cad === 'number' ? e.net_worth_cad : e.current_total_cad) : e.current_total_cad;
+    const heroLabel = hasExcluded
+      ? (afterTaxMode() ? 'Total Net Worth (After-Tax)' : 'Total Net Worth')
+      : (afterTaxMode() ? t('kpi_after_tax_allocation') : t('kpi_total_value'));
+    const heroSub = hasExcluded
+      ? `<span class="text-muted">Rebalanced: <b>${fmtMoney(e.current_total_cad)}</b>${afterTaxMode() ? ` · Gross NW: ${fmtMoney(e.gross_net_worth_cad || netWorthVal)}` : ''}</span>`
+      : (afterTaxMode()
+          ? `<span class="text-muted">${esc(t('kpi_rrsp_tax_sub', { tax: fmtMoney(e.estimated_rrsp_deferred_tax_cad || 0), gross: fmtMoney(grossCurrentTotal()) }))}</span>`
+          : `<span>${esc(t('kpi_positions_across', { pos: (e.raw_holdings || []).length, acc: (e.account_summaries || []).length }))}</span>`);
+
     return `
       <div class="card">
-        <div class="kpi-label">${esc(afterTaxMode() ? t('kpi_after_tax_allocation') : t('kpi_total_value'))}</div>
-        <div class="kpi-value">${fmtMoney(e.current_total_cad)}</div>
+        <div class="kpi-label">${esc(heroLabel)}</div>
+        <div class="kpi-value">${fmtMoney(netWorthVal)}</div>
         <div class="kpi-sub">
-          ${afterTaxMode()
-            ? `<span class="text-muted">${esc(t('kpi_rrsp_tax_sub', { tax: fmtMoney(e.estimated_rrsp_deferred_tax_cad || 0), gross: fmtMoney(grossCurrentTotal()) }))}</span>`
-            : `<span>${esc(t('kpi_positions_across', { pos: (e.raw_holdings || []).length, acc: (e.account_summaries || []).length }))}</span>`
-          }
+          ${heroSub}
         </div>
       </div>
 
@@ -258,7 +266,13 @@
     return out;
   }
 
+  function isManualSymbol(sym) {
+    const def = appState && appState.symbols && appState.symbols.symbols && appState.symbols.symbols[sym];
+    return !!(def && def.exchange === 'MANUAL');
+  }
+
   function renderEditableSharesCell(holdingID, shares, symbol, account, isGrp) {
+    if (isManualSymbol(symbol)) return `<span class="text-muted">—</span>`;
     if (isGrp) return `<span>${fmtNum(shares)}</span>`;
     return `
       <input type="text" inputmode="decimal" class="inline-num"
@@ -266,6 +280,17 @@
              onchange="onQuickChangeShares('${holdingID}', this.value)"
              title="${esc(t('title_edit_shares', { sym: symbol }))} (${esc(account)})" />
     `;
+  }
+
+  function renderManualOrValueCell(holdingID, symbol, shares, sharePrice, marketValueCAD, currency, isGrp) {
+    if (!isManualSymbol(symbol) || isGrp) {
+      return `<b>${fmtMoney(marketValueCAD)}</b>`;
+    }
+    const nativeAmount = round4(shares * sharePrice);
+    const cadHint = currency === 'USD' ? `<div class="text-muted" style="font-size:11px;">${fmtMoney(marketValueCAD)}</div>` : '';
+    return `<input type="text" inputmode="decimal" class="inline-num" style="font-weight:700;" value="${nativeAmount}"
+      onchange="onQuickChangeManualAmount('${holdingID}', '${esc(symbol)}', this.value)"
+      title="Edit amount (${esc(currency)})" />${cadHint}`;
   }
 
   function renderDivisionCards() {
@@ -333,7 +358,7 @@
       const isCollapsed = collapsedCards.has(cardKey);
       return `
         <div class="div-card${isCollapsed ? ' collapsed' : ''}" data-division="${esc(div.division_name)}" data-card-key="${esc(cardKey)}">
-          <div class="div-card-header" onclick="onDivCardHeaderClick(event, '${esc(cardKey)}')">
+          <div class="div-card-header" onclick="onDivCardHeaderClick(event)">
             <div class="div-title-group">
               <span class="card-chevron">▾</span>
               <span class="legend-dot" style="background:${color};width:12px;height:12px;"></span>
@@ -563,7 +588,7 @@
         const clsCollapsed = collapsedCards.has(clsCardKey);
         return `
           <div class="div-card${clsCollapsed ? ' collapsed' : ''}" data-card-key="${esc(clsCardKey)}">
-            <div class="div-card-header" onclick="onDivCardHeaderClick(event, '${esc(clsCardKey)}')">
+            <div class="div-card-header" onclick="onDivCardHeaderClick(event)">
               <div class="div-title-group">
                 <span class="card-chevron">▾</span>
                 <span class="legend-dot" style="background:${color};width:12px;height:12px;"></span>
@@ -595,10 +620,10 @@
               <b title="${esc(h.symbol_name)}">${esc(h.symbol)}</b>
               ${!rebalanceMode && h.symbol_name ? `<span class="text-muted" style="font-size:12.5px;margin-left:4px;">${esc(h.symbol_name)}</span>` : ''}
             </td>
-            <td class="left wrap-text" style="line-height:1.7;">${breakdownPills}</td>
-            <td class="text-muted">${fmtPrice(h.share_price)} <span style="font-size:11px;">${esc(h.currency)}</span></td>
+            <td class="left wrap-text" style="line-height:1.7;">${breakdownPills || '<span class="text-muted" style="font-size:12px;">—</span>'}</td>
+            <td class="text-muted">${isManualSymbol(h.symbol) ? '—' : `${fmtPrice(h.share_price)} <span style="font-size:11px;">${esc(h.currency)}</span>`}</td>
             <td>${renderEditableSharesCell(h.holding_id, h.shares, h.symbol, h.account, isGrp)}</td>
-            <td><b>${fmtMoney(h.market_value_cad)}</b></td>
+            <td>${renderManualOrValueCell(h.holding_id, h.symbol, h.shares, h.share_price, h.market_value_cad, h.currency, isGrp)}</td>
             <td>${fmtPct(portPct, 1)}</td>
           </tr>
         `;
@@ -608,7 +633,7 @@
       const clsCollapsed = collapsedCards.has(clsCardKey);
       return `
         <div class="div-card${clsCollapsed ? ' collapsed' : ''}" data-card-key="${esc(clsCardKey)}">
-          <div class="div-card-header" onclick="onDivCardHeaderClick(event, '${esc(clsCardKey)}')">
+          <div class="div-card-header" onclick="onDivCardHeaderClick(event)">
             <div class="div-title-group">
               <span class="card-chevron">▾</span>
               <span class="legend-dot" style="background:${color};width:12px;height:12px;"></span>
@@ -665,29 +690,36 @@
 
     container.innerHTML = (e.account_summaries || []).map((acc, idx) => {
       const color = DIVISION_COLORS[idx % DIVISION_COLORS.length];
-      const renameBtnHtml = !isGrp ? `
-        <button class="btn btn-ghost btn-sm" onclick="promptRenameAccount('${esc(acc.account)}')"
-                title="${esc(t('title_rename_account', { acc: acc.account }))}"
-                style="padding:1px 5px;font-size:12px;cursor:pointer;margin-left:4px;">
-          ✎
-        </button>
-      ` : '';
-
       const posCount = (acc.holdings && acc.holdings.length) || 0;
       const delAccTitle = posCount > 0
         ? `Delete account '${esc(acc.account)}' and its ${posCount} position(s)`
         : `Delete empty account '${esc(acc.account)}'`;
 
       const cardActionsHtml = !isGrp ? `
-        <div style="display:flex;gap:6px;align-items:center;margin-left:auto;">
-          <button class="btn btn-sm btn-primary" onclick="openAddPositionModal('${esc(acc.account)}')"
-                  title="Add a new holding directly to ${esc(acc.account)}">
-            + Add Position
-          </button>
-          <button class="btn btn-sm btn-ghost" style="color:var(--red);" onclick="deleteAccount('${esc(acc.account)}')"
-                  title="${delAccTitle}">
-            ✕ Delete
-          </button>
+        <div class="card-menu-wrap">
+          <button type="button" class="btn btn-sm btn-ghost card-menu-btn"
+                  onclick="toggleAccountCardMenu(event, this)"
+                  title="Account actions" aria-haspopup="true" aria-expanded="false">⋯</button>
+          <div class="card-menu hidden" role="menu">
+            <button type="button" class="card-menu-item" role="menuitem"
+                    onclick="closeAllAccountMenus(); openAddPositionModal(this.closest('.div-card').dataset.account)">
+              + Add Position
+            </button>
+            <button type="button" class="card-menu-item" role="menuitem"
+                    onclick="closeAllAccountMenus(); promptRenameAccount(this.closest('.div-card').dataset.account)">
+              ✎ Rename Account
+            </button>
+            <button type="button" class="card-menu-item" role="menuitem"
+                    onclick="closeAllAccountMenus(); toggleAccountExcludeFromRebalance(this.closest('.div-card').dataset.account)">
+              ${acc.excluded_from_rebalancing ? '✓ Include in Rebalancing' : '⊘ Exclude from Rebalancing'}
+            </button>
+            <div class="card-menu-sep"></div>
+            <button type="button" class="card-menu-item danger" role="menuitem"
+                    onclick="closeAllAccountMenus(); deleteAccount(this.closest('.div-card').dataset.account)"
+                    title="${delAccTitle}">
+              ✕ Delete Account
+            </button>
+          </div>
         </div>
       ` : '';
 
@@ -722,39 +754,40 @@
           </select>
         ` : `<span>${esc(currentRebalVal || '—')}</span>`;
 
+        const secLabelHtml = !isGrp
+          ? `<span class="sec-edit-link" onclick="openEditPositionModal(this.closest('tr').dataset.holdingId)" title="Edit or delete ${esc(h.symbol)}">
+               <b>${esc(h.symbol)}</b>
+               ${!rebalanceMode && h.symbol_name ? `<span class="text-muted" style="font-size:12.5px;margin-left:4px;">${esc(h.symbol_name)}</span>` : ''}
+             </span>`
+          : `<b title="${esc(h.symbol_name)}">${esc(h.symbol)}</b>${!rebalanceMode && h.symbol_name ? `<span class="text-muted" style="font-size:12.5px;margin-left:4px;">${esc(h.symbol_name)}</span>` : ''}`;
+
         return `
           <tr data-holding-id="${esc(h.holding_id)}">
             <td class="left">
-              ${dragHandleHtml(isGrp)}<b title="${esc(h.symbol_name)}">${esc(h.symbol)}</b>
-              ${!rebalanceMode && h.symbol_name ? `<span class="text-muted" style="font-size:12.5px;margin-left:4px;">${esc(h.symbol_name)}</span>` : ''}
+              ${dragHandleHtml(isGrp)}${secLabelHtml}
             </td>
-            <td class="left">${breakdownPills}</td>
-            <td class="text-muted">${fmtPrice(h.share_price)} <span style="font-size:11px;">${esc(h.currency)}</span></td>
+            <td class="left">${breakdownPills || '<span class="text-muted" style="font-size:12px;">—</span>'}</td>
+            <td class="text-muted">${isManualSymbol(h.symbol) ? '—' : `${fmtPrice(h.share_price)} <span style="font-size:11px;">${esc(h.currency)}</span>`}</td>
             <td>${renderEditableSharesCell(h.holding_id, h.shares, h.symbol, acc.account, isGrp)}</td>
-            <td><b>${fmtMoney(h.market_value_cad)}</b></td>
+            <td>${renderManualOrValueCell(h.holding_id, h.symbol, h.shares, h.share_price, h.market_value_cad, h.currency, isGrp)}</td>
             <td>${fmtPct(portPct, 1)}</td>
-            ${!isGrp ? `
-              <td class="center">
-                <button class="btn btn-ghost" style="color:var(--red);padding:2px 8px;font-size:13px;"
-                        onclick="deleteHolding('${h.holding_id}')" title="${delHoldingTitle}">✕</button>
-              </td>
-            ` : ''}
           </tr>
         `;
       }).join('');
 
-      const colSpan = !isGrp ? 7 : 6;
+      const colSpan = 6;
 
       const accCardKey = `acc:${acc.account}`;
       const accCollapsed = collapsedCards.has(accCardKey);
       return `
-        <div class="div-card${accCollapsed ? ' collapsed' : ''}" data-card-key="${esc(accCardKey)}">
-          <div class="div-card-header" onclick="onDivCardHeaderClick(event, '${esc(accCardKey)}')">
+        <div class="div-card${accCollapsed ? ' collapsed' : ''}" data-card-key="${esc(accCardKey)}" data-account="${esc(acc.account)}" data-account-type="${esc(acc.account_type || '')}">
+          <div class="div-card-header" onclick="onDivCardHeaderClick(event)">
             <div class="div-title-group" style="display:flex;align-items:center;gap:6px;">
+              ${dragHandleHtml(isGrp)}
               <span class="card-chevron">▾</span>
               <span class="legend-dot" style="background:${color};width:12px;height:12px;"></span>
               <span style="font-size:15px;font-weight:700;">${esc(acc.account)}</span>
-              ${renameBtnHtml}
+              ${acc.excluded_from_rebalancing ? `<span class="pill pill-neutral" style="font-size:11px;" title="Included in Net Worth, excluded from rebalancing">Net Worth Only</span>` : ''}
             </div>
             <div class="div-metrics-group" style="display:flex;align-items:center;gap:12px;">
               <div><span class="text-muted">${esc(t('lbl_positions_colon'))}</span> <b>${acc.position_count || (acc.holdings || []).length}</b></div>
@@ -764,7 +797,7 @@
             </div>
           </div>
           <div class="div-card-body" style="overflow-x:auto;">
-            <table class="table-clean" data-sort-table="acc_${esc(acc.account)}" data-drag-scope="holdings">
+            <table class="table-clean" data-sort-table="acc_${esc(acc.account)}" data-drag-scope="holdings" data-account="${esc(acc.account)}">
               <thead>
                 <tr>
                   <th class="left" title="Ticker symbol and asset description">${esc(t('th_security'))}</th>
@@ -773,10 +806,9 @@
                   <th title="Share quantity held in this account (editable)">${esc(t('th_shares'))}</th>
                   <th title="Total market value converted to Canadian Dollars">${esc(t('th_value_cad'))}</th>
                   <th title="Weight of this position as a percentage of total portfolio">${esc(t('th_portfolio_pct'))}</th>
-                  ${!isGrp ? `<th class="center" style="width:60px;" data-nosort title="Position actions">${esc(t('th_actions'))}</th>` : ''}
                 </tr>
               </thead>
-              <tbody>${rowsHtml || `<tr><td colspan="${colSpan}" class="center text-muted" style="padding:20px;">No positions in ${esc(acc.account)}. <button class="btn btn-sm btn-primary" style="margin-left:8px;" onclick="openAddPositionModal('${esc(acc.account)}')">+ Add Position</button></td></tr>`}</tbody>
+              <tbody>${rowsHtml || `<tr><td colspan="${colSpan}" class="center text-muted" style="padding:20px;">No positions in ${esc(acc.account)}. <button class="btn btn-sm btn-primary" style="margin-left:8px;" onclick="openAddPositionModal(this.closest('.div-card').dataset.account)">+ Add Position</button></td></tr>`}</tbody>
             </table>
           </div>
         </div>
@@ -843,14 +875,14 @@
             <td class="left">
               ${dragHandleHtml(isGrp)}<b>${esc(a.account)}</b>
               ${!isGrp ? `
-                <button class="btn btn-ghost btn-sm" onclick="promptRenameAccount('${esc(a.account)}')"
+                <button class="btn btn-ghost btn-sm" onclick="promptRenameAccount(this.closest('tr').dataset.rowKey)"
                         title="${esc(t('title_rename_account', { acc: a.account }))}"
                         style="padding:0 5px;font-size:11px;margin-left:6px;cursor:pointer;">
                   ✎
                 </button>
               ` : ''}
             </td>
-            <td class="left"><span class="pill pill-neutral">${esc(tTerm(clsLabel))}</span></td>
+            <td class="left"><span class="pill pill-neutral">${esc(tTerm(clsLabel))}</span>${a.excluded_from_rebalancing ? ` <span class="pill pill-neutral" style="font-size:11px;">Net Worth Only</span>` : ''}</td>
             <td>
               <b>${fmtMoney(afterTaxMode() ? (a.allocation_value_cad ?? a.market_value_cad) : a.market_value_cad)}</b>
               ${afterTaxMode() ? `<div class="text-muted" title="${esc(t('title_gross_value', { gross: fmtMoney(a.market_value_cad) }))}" style="font-size:11px;font-weight:500;">${esc(t('lbl_value_colon'))} ${fmtMoney(a.market_value_cad)}</div>` : ''}
@@ -1449,6 +1481,24 @@
     showToast(`Updated account classification to ${accType.toUpperCase()}`);
   }
 
+  async function onQuickChangeManualAmount(holdingID, sym, val) {
+    const amount = parseFloat(String(val).replace(/,/g, '')) || 0;
+    const symbolsCfg = (appState && appState.symbols) ? appState.symbols : { symbols: {} };
+    if (symbolsCfg.symbols && symbolsCfg.symbols[sym]) {
+      symbolsCfg.symbols[sym].fixed_price = Math.abs(amount);
+      const symRes = await fetch('/api/symbols', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(symbolsCfg)
+      });
+      if (symRes.ok) {
+        appState = await symRes.json();
+      }
+    }
+    const targetShares = amount < 0 ? -1 : 1;
+    await onQuickChangeShares(holdingID, targetShares);
+  }
+
   async function onQuickChangeShares(holdingID, val) {
     const num = parseFloat(String(val).replace(/,/g, '')) || 0;
     const res = await fetch('/api/holding/quick-update', {
@@ -1586,6 +1636,7 @@
   }
 
   async function submitNewAccountModal() {
+    if (isGroupSelection(selectedPortfolio) || !currentPortfolioConfig) return;
     const nameInp = document.getElementById('modalNewAccountName');
     const accName = nameInp ? nameInp.value.trim() : '';
     if (!accName) {
@@ -1593,11 +1644,68 @@
       return;
     }
     const typeSel = document.getElementById('modalNewAccountType');
-    const accType = typeSel ? typeSel.value : 'rrsp';
+    const accType = typeSel ? typeSel.value : 'non_registered';
+
+    if (!Array.isArray(currentPortfolioConfig.accounts)) {
+      currentPortfolioConfig.accounts = [];
+    }
+    const alreadyExists = currentPortfolioConfig.accounts.some(a => a.name === accName) ||
+      (currentPortfolioConfig.holdings || []).some(h => h.account === accName);
+
+    if (!alreadyExists) {
+      currentPortfolioConfig.accounts.push({ name: accName, account_type: accType });
+      if (Array.isArray(currentPortfolioConfig.account_order) && currentPortfolioConfig.account_order.length > 0 && !currentPortfolioConfig.account_order.includes(accName)) {
+        currentPortfolioConfig.account_order.push(accName);
+      }
+      const res = await fetch('/api/portfolio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(currentPortfolioConfig)
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || 'Failed to create account.');
+        return;
+      }
+      await loadStateAndEvaluate();
+      showToast(`Created account "${accName}"`);
+    }
 
     closeNewAccountModal();
-    // Open Add Position Modal for this new account
-    openAddPositionModal(accName, accType);
+    if (window._newAccountReturnToAdd) {
+      window._newAccountReturnToAdd = false;
+      openAddPositionModal(accName, accType);
+    }
+  }
+
+  async function toggleAccountExcludeFromRebalance(accName) {
+    if (isGroupSelection(selectedPortfolio) || !currentPortfolioConfig) return;
+    if (!Array.isArray(currentPortfolioConfig.accounts)) {
+      currentPortfolioConfig.accounts = [];
+    }
+    let accObj = currentPortfolioConfig.accounts.find(a => a.name === accName);
+    if (!accObj) {
+      const evalAcc = ((currentEval && currentEval.account_summaries) || []).find(a => a.account === accName);
+      accObj = {
+        name: accName,
+        account_type: evalAcc ? evalAcc.account_type : ''
+      };
+      currentPortfolioConfig.accounts.push(accObj);
+    }
+    accObj.exclude_from_rebalancing = !accObj.exclude_from_rebalancing;
+    const res = await fetch('/api/portfolio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(currentPortfolioConfig)
+    });
+    if (!res.ok) {
+      showToast('Failed to update account setting');
+      return;
+    }
+    await loadStateAndEvaluate();
+    showToast(accObj.exclude_from_rebalancing
+      ? `"${accName}" excluded from rebalancing (Net Worth only)`
+      : `"${accName}" included in rebalancing`);
   }
 
   async function deleteAccount(accName) {
@@ -1616,6 +1724,12 @@
     if (!ok) return;
 
     currentPortfolioConfig.holdings = holds.filter(h => h.account !== accName);
+    if (Array.isArray(currentPortfolioConfig.accounts)) {
+      currentPortfolioConfig.accounts = currentPortfolioConfig.accounts.filter(a => a.name !== accName);
+    }
+    if (Array.isArray(currentPortfolioConfig.account_order)) {
+      currentPortfolioConfig.account_order = currentPortfolioConfig.account_order.filter(a => a !== accName);
+    }
     await fetch('/api/portfolio', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1624,6 +1738,202 @@
     await loadStateAndEvaluate();
     showToast(`Deleted account "${accName}"`);
   }
+
+  let _editingHoldingID = null;
+
+  function openEditPositionModal(holdingID) {
+    if (isGroupSelection(selectedPortfolio) || !currentPortfolioConfig || !holdingID) return;
+    const holds = currentPortfolioConfig.holdings || [];
+    const h = holds.find(x => x.id === holdingID);
+    if (!h) return;
+
+    _editingHoldingID = holdingID;
+    const isMan = isManualSymbol(h.symbol);
+    const symDef = (appState && appState.symbols && appState.symbols.symbols && appState.symbols.symbols[h.symbol]) || {};
+
+    const titleEl = document.getElementById('modalEditPosTitle');
+    if (titleEl) titleEl.textContent = `Edit Position — ${h.symbol}`;
+
+    // Populate accounts dropdown
+    const accSel = document.getElementById('modalEditPosAccount');
+    if (accSel) {
+      const accSet = new Set();
+      (currentPortfolioConfig.accounts || []).forEach(a => { if (a.name) accSet.add(a.name); });
+      holds.forEach(x => { if (x.account) accSet.add(x.account); });
+      ((currentEval && currentEval.account_summaries) || []).forEach(a => { if (a.account) accSet.add(a.account); });
+      if (h.account) accSet.add(h.account);
+      accSel.innerHTML = Array.from(accSet).map(a => `<option value="${esc(a)}">${esc(a)}</option>`).join('');
+      accSel.value = h.account;
+    }
+
+    // Manual fields vs Shares
+    const manWrap = document.getElementById('modalEditPosManualFields');
+    if (manWrap) manWrap.classList.toggle('hidden', !isMan);
+    const sharesLbl = document.getElementById('modalEditPosSharesLabel');
+    if (sharesLbl) sharesLbl.textContent = isMan ? 'Amount' : 'Shares';
+    const sharesInp = document.getElementById('modalEditPosShares');
+    if (sharesInp) {
+      if (isMan) {
+        const unitPrice = symDef.fixed_price > 0 ? symDef.fixed_price : 1;
+        sharesInp.value = round4(h.shares * unitPrice);
+      } else {
+        sharesInp.value = round4(h.shares);
+      }
+    }
+    if (isMan) {
+      const manName = document.getElementById('modalEditPosManualName');
+      if (manName) manName.value = symDef.name || h.symbol;
+      const manCurr = document.getElementById('modalEditPosManualCurrency');
+      if (manCurr) manCurr.value = symDef.currency || 'CAD';
+    }
+
+    // Populate Division Mapping dropdown
+    const divSel = document.getElementById('modalEditPosDivision');
+    if (divSel) {
+      const divNames = new Set();
+      ((currentEval && currentEval.divisions) || []).forEach(d => divNames.add(d.division_name));
+      ((appState && appState.divisions && appState.divisions.divisions) || []).forEach(d => divNames.add(d.name));
+      let opts = `<option value="">Use Symbol Default</option>`;
+      opts += `<option value="__none__">None (No Division)</option>`;
+      Array.from(divNames).forEach(dn => {
+        opts += `<option value="${esc(dn)}">${esc(tTerm(dn))}</option>`;
+      });
+      divSel.innerHTML = opts;
+      if (h.no_division) {
+        divSel.value = '__none__';
+      } else if (h.division) {
+        divSel.value = h.division;
+      } else {
+        divSel.value = '';
+      }
+    }
+
+    const noteInp = document.getElementById('modalEditPosNote');
+    if (noteInp) noteInp.value = h.note || '';
+
+    const modal = document.getElementById('editPositionModal');
+    if (modal) modal.classList.remove('hidden');
+    setTimeout(() => { if (sharesInp) { sharesInp.focus(); sharesInp.select(); } }, 40);
+  }
+
+  function closeEditPositionModal() {
+    _editingHoldingID = null;
+    const modal = document.getElementById('editPositionModal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  async function submitEditPositionModal() {
+    if (isGroupSelection(selectedPortfolio) || !currentPortfolioConfig || !_editingHoldingID) return;
+    const holds = currentPortfolioConfig.holdings || [];
+    const h = holds.find(x => x.id === _editingHoldingID);
+    if (!h) return;
+
+    const newAcc = (document.getElementById('modalEditPosAccount')?.value || '').trim();
+    const rawVal = parseFloat(String(document.getElementById('modalEditPosShares')?.value || '').replace(/,/g, ''));
+    const divVal = document.getElementById('modalEditPosDivision')?.value || '';
+    const noteVal = (document.getElementById('modalEditPosNote')?.value || '').trim();
+    const isMan = isManualSymbol(h.symbol);
+
+    if (!newAcc) {
+      alert('Please select an account.');
+      return;
+    }
+    if (isNaN(rawVal) || (isMan && rawVal === 0) || (!isMan && rawVal < 0)) {
+      alert(isMan ? 'Please enter a non-zero amount.' : 'Please enter a valid share quantity.');
+      return;
+    }
+
+    if (isMan) {
+      const manName = (document.getElementById('modalEditPosManualName')?.value || '').trim() || h.symbol;
+      const manCurr = document.getElementById('modalEditPosManualCurrency')?.value || 'CAD';
+      const symbolsCfg = (appState && appState.symbols) ? appState.symbols : { symbols: {} };
+      if (symbolsCfg.symbols && symbolsCfg.symbols[h.symbol]) {
+        symbolsCfg.symbols[h.symbol].name = manName;
+        symbolsCfg.symbols[h.symbol].currency = manCurr;
+        symbolsCfg.symbols[h.symbol].fixed_price = Math.abs(rawVal);
+        const symRes = await fetch('/api/symbols', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(symbolsCfg)
+        });
+        if (symRes.ok) appState = await symRes.json();
+      }
+      h.shares = rawVal < 0 ? -1 : 1;
+    } else {
+      h.shares = rawVal;
+    }
+
+    if (h.account !== newAcc) {
+      h.account = newAcc;
+      const defAcc = (currentPortfolioConfig.accounts || []).find(a => a.name === newAcc);
+      const sibling = holds.find(x => x.id !== h.id && x.account === newAcc && x.account_type);
+      if (defAcc && defAcc.account_type) {
+        h.account_type = defAcc.account_type;
+      } else if (sibling) {
+        h.account_type = sibling.account_type;
+      } else {
+        delete h.account_type;
+      }
+    }
+
+    if (divVal === '__none__') {
+      h.no_division = true;
+      delete h.division;
+      delete h.divisions;
+    } else if (divVal) {
+      delete h.no_division;
+      h.division = divVal;
+      delete h.divisions;
+    } else {
+      delete h.no_division;
+      delete h.division;
+      delete h.divisions;
+    }
+
+    if (noteVal) {
+      h.note = noteVal;
+    } else {
+      delete h.note;
+    }
+
+    const res = await fetch('/api/portfolio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(currentPortfolioConfig)
+    });
+    if (!res.ok) {
+      alert('Failed to save position changes.');
+      return;
+    }
+    closeEditPositionModal();
+    await loadStateAndEvaluate();
+    showToast(`Updated ${h.symbol}`);
+  }
+
+  async function deleteFromEditPositionModal() {
+    if (!_editingHoldingID) return;
+    const targetID = _editingHoldingID;
+    const h = (currentPortfolioConfig && currentPortfolioConfig.holdings || []).find(x => x.id === targetID);
+    const label = h ? `${h.symbol} in ${h.account}` : 'this position';
+    const ok = await openConfirmModal({
+      title: 'Delete Position',
+      message: `Remove ${label}?`,
+      confirmLabel: 'Delete',
+      danger: true
+    });
+    if (!ok) return;
+    closeEditPositionModal();
+    await deleteHolding(targetID);
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const editModal = document.getElementById('editPositionModal');
+      if (editModal && !editModal.classList.contains('hidden')) {
+        closeEditPositionModal();
+      }
+    }
+  });
 
   function openAddPositionModal(targetAccount, targetAccType) {
     if (isGroupSelection(selectedPortfolio)) {
@@ -1637,6 +1947,9 @@
     const accSel = document.getElementById('modalAddPosAccountSelect');
     if (accSel) {
       const existingAccounts = new Set();
+      (currentPortfolioConfig.accounts || []).forEach(a => {
+        if (a.name && !a.name.includes(' · ')) existingAccounts.add(a.name);
+      });
       (currentPortfolioConfig.holdings || []).forEach(h => {
         if (h.account && !h.account.includes(' · ')) existingAccounts.add(h.account);
       });
@@ -1665,6 +1978,18 @@
 
     // Reset details preview
     resetModalPreviewCard();
+
+    // Reset manual asset toggle & fields
+    const manToggle = document.getElementById('modalAddPosManualToggle');
+    if (manToggle) manToggle.checked = false;
+    const manFields = document.getElementById('modalAddPosManualFields');
+    if (manFields) manFields.classList.add('hidden');
+    const manName = document.getElementById('modalAddPosManualName');
+    if (manName) manName.value = '';
+    const manCurr = document.getElementById('modalAddPosManualCurrency');
+    if (manCurr) manCurr.value = 'CAD';
+    const sharesLbl = document.getElementById('modalAddPosSharesLabel');
+    if (sharesLbl) sharesLbl.textContent = 'Shares / Principal';
 
     // Hide suggestions dropdown
     const sug = document.getElementById('modalAddPosSuggestions');
@@ -1885,6 +2210,13 @@
     if (!sharesInp || !estEl) return;
 
     const shares = parseFloat(String(sharesInp.value).replace(/,/g, '')) || 0;
+    const isManual = document.getElementById('modalAddPosManualToggle')?.checked;
+    if (isManual) {
+      const curr = document.getElementById('modalAddPosManualCurrency')?.value || 'CAD';
+      const fx = curr === 'USD' ? ((currentEval && currentEval.usd_cad_rate) || 1.41) : 1.0;
+      estEl.textContent = fmtMoney(shares * fx);
+      return;
+    }
     if (!modalSelectedSymbolData || !modalSelectedSymbolData.price || shares <= 0) {
       estEl.textContent = '$0.00';
       return;
@@ -1897,6 +2229,46 @@
     estEl.textContent = fmtMoney(cadVal);
   }
 
+  function onToggleManualAssetMode() {
+    const isManual = !!document.getElementById('modalAddPosManualToggle')?.checked;
+    const fields = document.getElementById('modalAddPosManualFields');
+    if (fields) fields.classList.toggle('hidden', !isManual);
+    const sug = document.getElementById('modalAddPosSuggestions');
+    if (sug && isManual) sug.classList.add('hidden');
+    const sharesLbl = document.getElementById('modalAddPosSharesLabel');
+    if (sharesLbl) sharesLbl.textContent = isManual ? 'Amount' : 'Shares / Principal';
+    if (isManual) {
+      onManualAssetInput();
+    } else {
+      resetModalPreviewCard();
+      updateModalEstimatedValue();
+    }
+  }
+
+  function onManualAssetInput() {
+    const isManual = !!document.getElementById('modalAddPosManualToggle')?.checked;
+    if (!isManual) return;
+    const sym = (document.getElementById('modalAddPosSymbolInput')?.value || '').trim().toUpperCase() || 'MANUAL';
+    const name = (document.getElementById('modalAddPosManualName')?.value || '').trim() || sym;
+    const curr = document.getElementById('modalAddPosManualCurrency')?.value || 'CAD';
+    modalSelectedSymbolData = {
+      symbol: sym,
+      name: name,
+      price: 1,
+      currency: curr,
+      is_manual: true
+    };
+    const titleEl = document.getElementById('modalPreviewSymTitle');
+    if (titleEl) titleEl.textContent = `${sym} · Manual Asset`;
+    const nameEl = document.getElementById('modalPreviewSymName');
+    if (nameEl) nameEl.textContent = name;
+    const priceEl = document.getElementById('modalPreviewPrice');
+    if (priceEl) priceEl.textContent = 'Manual';
+    const currEl = document.getElementById('modalPreviewCurrency');
+    if (currEl) currEl.textContent = curr;
+    updateModalEstimatedValue();
+  }
+
   async function submitAddPositionModal() {
     if (isGroupSelection(selectedPortfolio)) return;
     const accSel = document.getElementById('modalAddPosAccountSelect');
@@ -1904,9 +2276,10 @@
     const symInp = document.getElementById('modalAddPosSymbolInput');
     const sym = symInp ? symInp.value.trim().toUpperCase() : '';
     const sharesInp = document.getElementById('modalAddPosSharesInput');
-    const shares = sharesInp ? parseFloat(String(sharesInp.value).replace(/,/g, '')) : 0;
+    const rawAmountOrShares = sharesInp ? parseFloat(String(sharesInp.value).replace(/,/g, '')) : 0;
     const noteInp = document.getElementById('modalAddPosNoteInput');
     const note = noteInp ? noteInp.value.trim() : '';
+    const isManual = !!document.getElementById('modalAddPosManualToggle')?.checked;
 
     if (!acc) {
       alert('Please select or specify an account.');
@@ -1916,9 +2289,39 @@
       alert('Please enter a symbol or ETF ticker.');
       return;
     }
-    if (!shares || isNaN(shares) || shares <= 0) {
-      alert('Please enter a valid share quantity greater than zero.');
+    if (isNaN(rawAmountOrShares) || rawAmountOrShares === 0 || (!isManual && rawAmountOrShares < 0)) {
+      alert(isManual ? 'Please enter a non-zero amount.' : 'Please enter a valid share quantity greater than zero.');
       return;
+    }
+
+    let shares = rawAmountOrShares;
+    if (isManual) {
+      const manName = (document.getElementById('modalAddPosManualName')?.value || '').trim() || sym;
+      const manCurr = document.getElementById('modalAddPosManualCurrency')?.value || 'CAD';
+      const symbolsCfg = (appState && appState.symbols) ? appState.symbols : { symbols: {} };
+      if (!symbolsCfg.symbols) symbolsCfg.symbols = {};
+      const existingSym = symbolsCfg.symbols[sym] || {};
+      symbolsCfg.symbols[sym] = {
+        asset_type: existingSym.asset_type || 'cash',
+        name: manName,
+        exchange: 'MANUAL',
+        currency: manCurr,
+        tax_structure: existingSym.tax_structure || 'domestic_canadian',
+        default_mer: existingSym.default_mer || 0,
+        fixed_price: Math.abs(rawAmountOrShares),
+        default_divisions: existingSym.default_divisions || {}
+      };
+      const symRes = await fetch('/api/symbols', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(symbolsCfg)
+      });
+      if (!symRes.ok) {
+        alert('Failed to register manual asset.');
+        return;
+      }
+      appState = await symRes.json();
+      shares = rawAmountOrShares < 0 ? -1 : 1;
     }
 
     if (!currentPortfolioConfig.holdings) currentPortfolioConfig.holdings = [];
@@ -1928,11 +2331,15 @@
       existing.shares += shares;
       if (note) existing.note = (existing.note ? existing.note + '; ' : '') + note;
     } else {
+      const defAcc = (currentPortfolioConfig.accounts || []).find(a => a.name === acc);
       const newHold = {
         account: acc,
         symbol: sym,
         shares: shares
       };
+      if (defAcc && defAcc.account_type) {
+        newHold.account_type = defAcc.account_type;
+      }
       if (note) newHold.note = note;
       currentPortfolioConfig.holdings.push(newHold);
     }
@@ -1966,14 +2373,19 @@
 
   // --- Strategy, Categories, Divisions & Groups ---
 
+  let activeDraggedHolding = null;
+  let activeDraggedAccountCard = null;
+
   function initDraggableTables() {
     if (isGroupSelection(selectedPortfolio)) return;
     document.querySelectorAll('table[data-drag-scope]').forEach(table => {
       const tbody = table.querySelector('tbody');
       if (!tbody) return;
       const scope = table.dataset.dragScope;
+      const inAccountCards = !!table.closest('#accountCardsContainer') && scope === 'holdings';
       const rows = Array.from(tbody.querySelectorAll('tr[data-holding-id], tr[data-row-key]'));
-      if (rows.length <= 1) return;
+      if (rows.length === 0) return;
+      if (rows.length === 1 && !inAccountCards) return;
 
       let draggedRow = null;
 
@@ -1993,7 +2405,16 @@
         });
 
         tr.addEventListener('dragstart', (e) => {
+          e.stopPropagation();
           draggedRow = tr;
+          if (inAccountCards) {
+            activeDraggedHolding = {
+              tr,
+              holdingId: tr.dataset.holdingId || '',
+              sourceAccount: table.dataset.account || '',
+              sourceTbody: tbody
+            };
+          }
           tr.classList.add('dragging-row');
           if (e.dataTransfer) {
             e.dataTransfer.effectAllowed = 'move';
@@ -2003,18 +2424,28 @@
 
         tr.addEventListener('dragend', () => {
           tr.classList.remove('dragging-row');
-          tbody.querySelectorAll('tr').forEach(r => r.classList.remove('drag-over-above', 'drag-over-below'));
+          document.querySelectorAll('tr.drag-over-above, tr.drag-over-below').forEach(r => r.classList.remove('drag-over-above', 'drag-over-below'));
+          document.querySelectorAll('.div-card.drag-target-card').forEach(c => c.classList.remove('drag-target-card'));
           draggedRow = null;
+          activeDraggedHolding = null;
         });
 
         tr.addEventListener('dragover', (e) => {
-          if (!draggedRow || draggedRow === tr || draggedRow.parentElement !== tbody) return;
+          if (activeDraggedAccountCard) return;
+          const sameTable = draggedRow && draggedRow !== tr && draggedRow.parentElement === tbody;
+          const crossAccount = inAccountCards && activeDraggedHolding && activeDraggedHolding.tr !== tr && activeDraggedHolding.sourceTbody !== tbody;
+          if (!sameTable && !crossAccount) return;
           e.preventDefault();
+          e.stopPropagation();
           if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
           const rect = tr.getBoundingClientRect();
           const above = e.clientY < rect.top + rect.height / 2;
-          tbody.querySelectorAll('tr').forEach(r => r.classList.remove('drag-over-above', 'drag-over-below'));
+          document.querySelectorAll('tr.drag-over-above, tr.drag-over-below').forEach(r => r.classList.remove('drag-over-above', 'drag-over-below'));
           tr.classList.add(above ? 'drag-over-above' : 'drag-over-below');
+          if (crossAccount) {
+            const card = table.closest('.div-card[data-account]');
+            if (card) card.classList.add('drag-target-card');
+          }
         });
 
         tr.addEventListener('dragleave', () => {
@@ -2022,11 +2453,27 @@
         });
 
         tr.addEventListener('drop', async (e) => {
-          if (!draggedRow || draggedRow === tr || draggedRow.parentElement !== tbody) return;
+          if (activeDraggedAccountCard) return;
+          const sameTable = draggedRow && draggedRow !== tr && draggedRow.parentElement === tbody;
+          const crossAccount = inAccountCards && activeDraggedHolding && activeDraggedHolding.tr !== tr && activeDraggedHolding.sourceTbody !== tbody;
+          if (!sameTable && !crossAccount) return;
           e.preventDefault();
+          e.stopPropagation();
           const rect = tr.getBoundingClientRect();
           const above = e.clientY < rect.top + rect.height / 2;
           tr.classList.remove('drag-over-above', 'drag-over-below');
+
+          if (crossAccount) {
+            const targetCard = table.closest('.div-card[data-account]');
+            if (targetCard) targetCard.classList.remove('drag-target-card');
+            const targetAccount = table.dataset.account || (targetCard ? targetCard.dataset.account : '');
+            const targetAccountType = targetCard ? (targetCard.dataset.accountType || '') : '';
+            const holdingId = activeDraggedHolding.holdingId;
+            activeDraggedHolding = null;
+            await moveHoldingToAccount(holdingId, targetAccount, targetAccountType, tr.dataset.holdingId || null, above);
+            return;
+          }
+
           tbody.insertBefore(draggedRow, above ? tr : tr.nextSibling);
 
           // Clear temporary column sort so persisted YAML order takes precedence
@@ -2048,6 +2495,165 @@
         });
       });
     });
+
+    initDraggableAccountCards();
+  }
+
+  function initDraggableAccountCards() {
+    if (isGroupSelection(selectedPortfolio)) return;
+    const container = document.getElementById('accountCardsContainer');
+    if (!container) return;
+    const cards = Array.from(container.querySelectorAll('.div-card[data-account]'));
+    if (cards.length === 0) return;
+
+    cards.forEach(card => {
+      const header = card.querySelector('.div-card-header');
+      if (!header) return;
+
+      if (cards.length > 1) {
+        card.draggable = true;
+
+        card.addEventListener('mousedown', (e) => {
+          // Only allow dragging account card from its header (not inner tables/inputs/buttons)
+          if (!e.target.closest('.div-card-header') || e.target.closest('button, a, input, select')) {
+            card.draggable = false;
+          } else {
+            card.draggable = true;
+          }
+        });
+
+        card.addEventListener('mouseup', () => {
+          card.draggable = true;
+        });
+
+        card.addEventListener('dragstart', (e) => {
+          if (activeDraggedHolding) {
+            e.preventDefault();
+            return;
+          }
+          activeDraggedAccountCard = {
+            card,
+            accountName: card.dataset.account || ''
+          };
+          card.classList.add('dragging-card');
+          if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', card.dataset.account || '');
+          }
+        });
+
+        card.addEventListener('dragend', () => {
+          card.classList.remove('dragging-card');
+          container.querySelectorAll('.div-card').forEach(c => c.classList.remove('drag-over-above', 'drag-over-below', 'drag-target-card'));
+          activeDraggedAccountCard = null;
+        });
+      }
+
+      card.addEventListener('dragover', (e) => {
+        if (activeDraggedHolding && activeDraggedHolding.sourceAccount !== (card.dataset.account || '')) {
+          e.preventDefault();
+          if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+          container.querySelectorAll('.div-card').forEach(c => {
+            if (c !== card) c.classList.remove('drag-target-card');
+          });
+          card.classList.add('drag-target-card');
+          return;
+        }
+        if (activeDraggedAccountCard && activeDraggedAccountCard.card !== card) {
+          e.preventDefault();
+          if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+          const rect = card.getBoundingClientRect();
+          const above = e.clientY < rect.top + rect.height / 2;
+          container.querySelectorAll('.div-card').forEach(c => c.classList.remove('drag-over-above', 'drag-over-below'));
+          card.classList.add(above ? 'drag-over-above' : 'drag-over-below');
+        }
+      });
+
+      card.addEventListener('dragleave', (e) => {
+        if (!card.contains(e.relatedTarget)) {
+          card.classList.remove('drag-over-above', 'drag-over-below', 'drag-target-card');
+        }
+      });
+
+      card.addEventListener('drop', async (e) => {
+        // Drop holding onto an account card (e.g. empty account card or header)
+        if (activeDraggedHolding && activeDraggedHolding.sourceAccount !== (card.dataset.account || '')) {
+          e.preventDefault();
+          card.classList.remove('drag-target-card');
+          const holdingId = activeDraggedHolding.holdingId;
+          const targetAccount = card.dataset.account || '';
+          const targetAccountType = card.dataset.accountType || '';
+          activeDraggedHolding = null;
+          await moveHoldingToAccount(holdingId, targetAccount, targetAccountType, null, false);
+          return;
+        }
+        // Drop account card to reorder accounts
+        if (activeDraggedAccountCard && activeDraggedAccountCard.card !== card) {
+          e.preventDefault();
+          const rect = card.getBoundingClientRect();
+          const above = e.clientY < rect.top + rect.height / 2;
+          card.classList.remove('drag-over-above', 'drag-over-below');
+          container.insertBefore(activeDraggedAccountCard.card, above ? card : card.nextSibling);
+          activeDraggedAccountCard = null;
+          const newOrder = Array.from(container.querySelectorAll('.div-card[data-account]'))
+            .map(c => c.dataset.account)
+            .filter(Boolean);
+          await persistPortfolioOrder('accountOrder', newOrder);
+        }
+      });
+    });
+  }
+
+  async function moveHoldingToAccount(holdingId, targetAccount, targetAccountType, targetHoldingId, insertAbove) {
+    if (!currentPortfolioConfig || isGroupSelection(selectedPortfolio) || !holdingId || !targetAccount) return;
+    const holds = currentPortfolioConfig.holdings || [];
+    const srcIdx = holds.findIndex(h => h.id === holdingId);
+    if (srcIdx < 0) return;
+
+    const item = holds[srcIdx];
+    const oldAcc = item.account;
+    if (oldAcc === targetAccount) return;
+
+    item.account = targetAccount;
+    if (targetAccountType) {
+      item.account_type = targetAccountType;
+    } else {
+      const defAcc = (currentPortfolioConfig.accounts || []).find(a => a.name === targetAccount);
+      const sibling = holds.find(h => h.id !== holdingId && h.account === targetAccount && h.account_type);
+      if (defAcc && defAcc.account_type) {
+        item.account_type = defAcc.account_type;
+      } else if (sibling) {
+        item.account_type = sibling.account_type;
+      } else {
+        delete item.account_type;
+      }
+    }
+
+    if (targetHoldingId) {
+      const without = holds.filter((_, i) => i !== srcIdx);
+      const tgtIdx = without.findIndex(h => h.id === targetHoldingId);
+      if (tgtIdx >= 0) {
+        without.splice(insertAbove ? tgtIdx : tgtIdx + 1, 0, item);
+        currentPortfolioConfig.holdings = without;
+      }
+    }
+
+    const res = await fetch('/api/portfolio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(currentPortfolioConfig)
+    });
+    if (!res.ok) {
+      showToast('Failed to move position');
+      return;
+    }
+    currentEval = await res.json();
+    const pRes = await fetch(`/api/portfolio?id=${encodeURIComponent(selectedPortfolio)}`);
+    if (pRes.ok) {
+      currentPortfolioConfig = await pRes.json();
+    }
+    renderAll();
+    showToast(`Moved ${item.symbol} to ${targetAccount}`);
   }
 
   function reorderHoldingsSubset(holdings, orderedIDs) {
@@ -2111,16 +2717,43 @@
 
   const collapsedCards = new Set();
 
-  function onDivCardHeaderClick(event, cardKey) {
+  function closeAllAccountMenus() {
+    document.querySelectorAll('.card-menu').forEach(m => m.classList.add('hidden'));
+    document.querySelectorAll('.card-menu-btn').forEach(b => b.setAttribute('aria-expanded', 'false'));
+  }
+
+  function toggleAccountCardMenu(event, btn) {
+    event.stopPropagation();
+    const wrap = btn.closest('.card-menu-wrap');
+    const menu = wrap ? wrap.querySelector('.card-menu') : null;
+    if (!menu) return;
+    const willOpen = menu.classList.contains('hidden');
+    closeAllAccountMenus();
+    if (willOpen) {
+      menu.classList.remove('hidden');
+      btn.setAttribute('aria-expanded', 'true');
+    }
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.card-menu-wrap')) {
+      closeAllAccountMenus();
+    }
+  });
+
+  function onDivCardHeaderClick(event, cardKeyArg) {
     if (event.target.closest('button, a, input, select')) return;
     const card = event.currentTarget.closest('.div-card');
     if (!card) return;
+    const cardKey = cardKeyArg || card.dataset.cardKey || '';
     const nextCollapsed = !card.classList.contains('collapsed');
     card.classList.toggle('collapsed', nextCollapsed);
-    if (nextCollapsed) {
-      collapsedCards.add(cardKey);
-    } else {
-      collapsedCards.delete(cardKey);
+    if (cardKey) {
+      if (nextCollapsed) {
+        collapsedCards.add(cardKey);
+      } else {
+        collapsedCards.delete(cardKey);
+      }
     }
     const container = card.parentElement;
     if (container && container.id) updateCollapseAllButton(container.id);

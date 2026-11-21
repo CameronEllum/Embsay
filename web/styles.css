@@ -660,6 +660,42 @@ tr.div-highlight {
 .app-footer a:hover {
   color: var(--primary);
 }
+.shutdown-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+}
+.shutdown-screen.hidden {
+  display: none;
+}
+.shutdown-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+}
+.shutdown-screen h1 {
+  margin: 0 0 8px 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+.shutdown-screen p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-muted);
+  max-width: 400px;
+  line-height: 1.5;
+}
 .alloc-legend {
   display: flex;
   flex-wrap: wrap;
@@ -800,6 +836,18 @@ tr.drag-over-above td {
 tr.drag-over-below td {
   box-shadow: inset 0 -2px 0 var(--primary);
 }
+.div-card.dragging-card {
+  opacity: 0.45;
+}
+.div-card.drag-over-above {
+  box-shadow: inset 0 3px 0 var(--primary), var(--shadow-sm);
+}
+.div-card.drag-over-below {
+  box-shadow: inset 0 -3px 0 var(--primary), var(--shadow-sm);
+}
+.div-card.drag-target-card {
+  box-shadow: 0 0 0 2px var(--primary), 0 6px 18px rgba(59, 130, 246, 0.16);
+}
 
 /* Division Cards */
 .div-card {
@@ -808,17 +856,92 @@ tr.drag-over-below td {
   border-radius: 12px;
   margin-bottom: 16px;
   box-shadow: var(--shadow);
-  overflow: hidden;
+  overflow: visible;
 }
 .div-card-header {
   padding: 14px 20px;
   background: var(--bg-subtle);
   border-bottom: 1px solid var(--border);
+  border-radius: 11px 11px 0 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
+}
+.div-card.collapsed .div-card-header {
+  border-radius: 11px;
+}
+.card-menu-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+}
+.card-menu-btn {
+  padding: 2px 8px;
+  font-size: 16px;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.card-menu-btn:hover {
+  color: var(--text);
+}
+.card-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 500;
+  min-width: 170px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+}
+.card-menu.hidden {
+  display: none;
+}
+.card-menu-item {
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.card-menu-item:hover {
+  background: var(--bg-subtle);
+}
+.card-menu-item.danger {
+  color: var(--red);
+}
+.card-menu-item.danger:hover {
+  background: rgba(220, 38, 38, 0.08);
+}
+.card-menu-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+.sec-edit-link {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  display: inline-block;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.sec-edit-link:hover {
+  background: var(--primary-soft);
+  color: var(--primary);
 }
 .div-title-group {
   display: flex;
