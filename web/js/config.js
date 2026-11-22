@@ -8,12 +8,14 @@ function renderConfigTab() {
   const cfgIntEl = document.getElementById('cfgLookupInterval');
   const cfgThemeEl = document.getElementById('cfgThemeMode');
   const cfgLoadEl = document.getElementById('cfgLookupOnLoad');
+  const cfgDivMapEl = document.getElementById('cfgShowAccountDivMapping');
   const cfgDriftEl = document.getElementById('cfgDriftThreshold');
   const cfgIdleEl = document.getElementById('cfgIdleTimeout');
   if (cfgLangEl && document.activeElement !== cfgLangEl) cfgLangEl.value = cfg.language || currentLang;
   if (cfgIntEl && document.activeElement !== cfgIntEl) cfgIntEl.value = cfg.lookup_interval || '1h';
   if (cfgThemeEl && document.activeElement !== cfgThemeEl) cfgThemeEl.value = cfg.theme_mode || 'system';
   if (cfgLoadEl && document.activeElement !== cfgLoadEl) cfgLoadEl.checked = cfg.lookup_on_load !== false;
+  if (cfgDivMapEl && document.activeElement !== cfgDivMapEl) cfgDivMapEl.checked = cfg.show_account_division_mapping !== false;
   const driftPct = ((cfg.drift_threshold !== undefined && cfg.drift_threshold > 0 ? cfg.drift_threshold : 0.01) * 100).toFixed(1);
   if (cfgDriftEl && document.activeElement !== cfgDriftEl) cfgDriftEl.value = driftPct;
   const idleHours = ((cfg.idle_timeout_hours !== undefined && cfg.idle_timeout_hours > 0 ? cfg.idle_timeout_hours : 1.0)).toString();
@@ -26,6 +28,8 @@ async function saveAppConfigFromTab() {
   const modeEl = document.getElementById('cfgThemeMode');
   const mode = (modeEl && modeEl.value) ? modeEl.value : currentThemeMode;
   const onLoad = document.getElementById('cfgLookupOnLoad') ? document.getElementById('cfgLookupOnLoad').checked : true;
+  const showDivMapEl = document.getElementById('cfgShowAccountDivMapping');
+  const showDivMap = showDivMapEl ? showDivMapEl.checked : (appState?.config?.show_account_division_mapping !== false);
   const driftInput = document.getElementById('cfgDriftThreshold');
   const driftRaw = driftInput ? parseFloat(driftInput.value) : 1.0;
   const driftVal = (isNaN(driftRaw) || driftRaw <= 0) ? 0.01 : (driftRaw / 100.0);
@@ -54,7 +58,8 @@ async function saveAppConfigFromTab() {
     drift_threshold: driftVal,
     idle_timeout_hours: idleVal,
     portfolio_paths: existingPaths,
-    subtab_order: existingSubtabOrder
+    subtab_order: existingSubtabOrder,
+    show_account_division_mapping: showDivMap
   };
 
   const res = await fetch('/api/config', {
@@ -68,5 +73,7 @@ async function saveAppConfigFromTab() {
   }
   const updatedState = await res.json();
   appState = updatedState;
+  if (typeof renderAccountCards === 'function') renderAccountCards();
+  if (typeof initSortableTables === 'function') initSortableTables();
   showToast(t('toast_settings_saved'));
 }

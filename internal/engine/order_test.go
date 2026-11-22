@@ -253,4 +253,31 @@ holdings:
 	if !eval4.AccountSummaries[0].ExcludedFromRebalancing {
 		t.Fatalf("expected Kids RESP ExcludedFromRebalancing = true")
 	}
+
+	// Verify bucket positions do not count toward portfolio weights (CurrentTotalCAD) even in normal accounts
+	beforeBucketTotal := eval4.CurrentTotalCAD
+	beforeBucketNW := eval4.NetWorthCAD
+	cfg3.Buckets = []model.BucketDef{{Name: "Emergency", TargetAmount: 25000}}
+	cfg3.Holdings = append(cfg3.Holdings, model.HoldingConfig{
+		Account: "Taxable",
+		Symbol:  "GIC_CAD",
+		Shares:  5000,
+		Bucket:  "Emergency",
+	})
+	if err := svc3.UpdatePortfolio(cfg3); err != nil {
+		t.Fatalf("UpdatePortfolio with bucket holding: %v", err)
+	}
+	eval5, err := svc3.Evaluate("ordered", "all")
+	if err != nil {
+		t.Fatalf("Evaluate 5: %v", err)
+	}
+	if eval5.CurrentTotalCAD != beforeBucketTotal {
+		t.Fatalf("bucket holding changed CurrentTotalCAD: got %v, want %v", eval5.CurrentTotalCAD, beforeBucketTotal)
+	}
+	if eval5.NetWorthCAD != beforeBucketNW+5000 {
+		t.Fatalf("expected NetWorthCAD = %v, got %v", beforeBucketNW+5000, eval5.NetWorthCAD)
+	}
+	if len(eval5.BucketSummaries) != 1 || eval5.BucketSummaries[0].MarketValueCAD != 5000 {
+		t.Fatalf("unexpected BucketSummaries: %+v", eval5.BucketSummaries)
+	}
 }

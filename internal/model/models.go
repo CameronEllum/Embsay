@@ -8,9 +8,10 @@ type AppConfig struct {
 	LookupInterval string   `yaml:"lookup_interval" json:"lookup_interval"` // e.g. "1h", "30m", "15m", "0s"
 	LookupOnLoad   bool     `yaml:"lookup_on_load" json:"lookup_on_load"`
 	PortfolioPaths []string `yaml:"portfolio_paths,omitempty" json:"portfolio_paths"`
-	DriftThreshold   float64  `yaml:"drift_threshold,omitempty" json:"drift_threshold"`     // e.g. 0.01 for 1%
-	IdleTimeoutHours float64  `yaml:"idle_timeout_hours,omitempty" json:"idle_timeout_hours"` // e.g. 1.0 for 1 hour idle auto-shutdown
-	SubtabOrder      []string `yaml:"subtab_order,omitempty" json:"subtab_order,omitempty"`
+	DriftThreshold             float64  `yaml:"drift_threshold,omitempty" json:"drift_threshold"`     // e.g. 0.01 for 1%
+	IdleTimeoutHours           float64  `yaml:"idle_timeout_hours,omitempty" json:"idle_timeout_hours"` // e.g. 1.0 for 1 hour idle auto-shutdown
+	SubtabOrder                []string `yaml:"subtab_order,omitempty" json:"subtab_order,omitempty"`
+	ShowAccountDivisionMapping *bool    `yaml:"show_account_division_mapping,omitempty" json:"show_account_division_mapping,omitempty"`
 }
 
 // --- 1. divisions.yaml ---
@@ -169,9 +170,16 @@ type PortfolioConfig struct {
 	ClassificationOrder   []string        `yaml:"classification_order,omitempty" json:"classification_order,omitempty"`
 	DivisionOrder         []string        `yaml:"division_order,omitempty" json:"division_order,omitempty"`
 	CategoryOrder         []string        `yaml:"category_order,omitempty" json:"category_order,omitempty"`
+	BucketOrder           []string        `yaml:"bucket_order,omitempty" json:"bucket_order,omitempty"`
 	Accounts              []AccountConfig `yaml:"accounts,omitempty" json:"accounts,omitempty"`
+	Buckets               []BucketDef     `yaml:"buckets,omitempty" json:"buckets,omitempty"`
 	Strategy              StrategyConfig  `yaml:"strategy" json:"strategy"`
 	Holdings              []HoldingConfig `yaml:"holdings" json:"holdings"`
+}
+
+type BucketDef struct {
+	Name         string  `yaml:"name" json:"name"`
+	TargetAmount float64 `yaml:"target_amount,omitempty" json:"target_amount,omitempty"`
 }
 
 type AccountConfig struct {
@@ -197,6 +205,7 @@ type HoldingConfig struct {
 	Division           string             `yaml:"division,omitempty" json:"division,omitempty"`
 	Divisions          map[string]float64 `yaml:"divisions,omitempty" json:"divisions,omitempty"`
 	NoDivision         bool               `yaml:"no_division,omitempty" json:"no_division,omitempty"`
+	Bucket             string             `yaml:"bucket,omitempty" json:"bucket,omitempty"`
 	RebalanceDivisions []string           `yaml:"rebalance_divisions,omitempty" json:"rebalance_divisions,omitempty"`
 	ProposedShares     float64            `yaml:"proposed_shares,omitempty" json:"proposed_shares,omitempty"`
 	Note               string             `yaml:"note,omitempty" json:"note,omitempty"`
@@ -240,6 +249,7 @@ type PortfolioEvaluation struct {
 	Divisions                   []DivisionEvaluation    `json:"divisions"`
 	AccountSummaries            []AccountSummary        `json:"account_summaries"`
 	ClassificationSummaries     []ClassificationSummary `json:"classification_summaries"`
+	BucketSummaries             []BucketSummary         `json:"bucket_summaries,omitempty"`
 	RegVsUnregSummaries         []RegVsUnregSummary     `json:"reg_vs_unreg_summaries"`
 	RawHoldings                 []HoldingSummary        `json:"raw_holdings"`
 	ChecksPassed                bool                    `json:"checks_passed"`
@@ -296,6 +306,7 @@ type EvaluatedSlice struct {
 	Symbol              string  `json:"symbol"`
 	SymbolName          string  `json:"symbol_name"`
 	Note                string  `json:"note,omitempty"`
+	Bucket              string  `json:"bucket,omitempty"`
 	IsCompositeSlice    bool    `json:"is_composite_slice"`
 	DivisionWeight      float64 `json:"division_weight"`
 	MER                 float64 `json:"mer"`
@@ -365,6 +376,15 @@ type RegVsUnregSummary struct {
 	CategoryRows  []CategoryEvaluation `json:"category_rows"`
 }
 
+type BucketSummary struct {
+	Bucket         string           `json:"bucket"`
+	TargetAmount   float64          `json:"target_amount,omitempty"`
+	MarketValueCAD float64          `json:"market_value_cad"`
+	NetWorthRatio  float64          `json:"net_worth_ratio"`
+	PositionCount  int              `json:"position_count"`
+	Holdings       []HoldingSummary `json:"holdings"`
+}
+
 type HoldingSummary struct {
 	HoldingID          string             `json:"holding_id"`
 	Account            string             `json:"account"`
@@ -372,6 +392,7 @@ type HoldingSummary struct {
 	Symbol             string             `json:"symbol"`
 	SymbolName         string             `json:"symbol_name"`
 	Note               string             `json:"note,omitempty"`
+	Bucket             string             `json:"bucket,omitempty"`
 	Currency           string             `json:"currency"`
 	SharePrice         float64            `json:"share_price"`
 	ExchangeRate       float64            `json:"exchange_rate"`

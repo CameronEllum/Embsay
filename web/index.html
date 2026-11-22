@@ -92,14 +92,21 @@
 <!-- PORTFOLIO CONTEXT BAR (Only visible when Portfolios main view is active) -->
 <nav id="portfolioContextBar" class="portfolio-context-bar">
   <div class="portfolio-context-inner">
-    <!-- Left: Portfolio Name + Sub-Tabs -->
+    <!-- Left: Portfolio Name Switcher + Sub-Tabs -->
     <div class="portfolio-bar-left">
-      <span class="active-portfolio-title" id="activePortfolioName"></span>
+      <div class="port-switcher-wrap">
+        <button type="button" id="activePortfolioSwitcherBtn" class="port-switcher-btn" onclick="togglePortfolioSwitcher(event)" title="Switch portfolio" aria-haspopup="true" aria-expanded="false">
+          <span class="active-portfolio-title" id="activePortfolioName"></span>
+          <span class="port-switcher-caret" aria-hidden="true">▾</span>
+        </button>
+        <div id="portfolioSwitcherMenu" class="card-menu port-switcher-menu hidden" role="menu"></div>
+      </div>
       <div class="port-subnav-divider"></div>
       <div id="portfolioSubNav" class="portfolio-subnav">
         <button class="port-subtab active" data-subtab="division" onclick="switchPortfolioSubTab('division')" data-i18n="nav_by_division">By Division</button>
         <button class="port-subtab" data-subtab="account" onclick="switchPortfolioSubTab('account')" data-i18n="nav_by_account">By Account</button>
         <button class="port-subtab" data-subtab="classification" onclick="switchPortfolioSubTab('classification')" data-i18n="nav_by_classification">By Classification</button>
+        <button class="port-subtab" data-subtab="bucket" onclick="switchPortfolioSubTab('bucket')">By Bucket</button>
         <button class="port-subtab" data-subtab="strategy" onclick="switchPortfolioSubTab('strategy')" data-i18n="nav_strategy_targets">Strategy Targets</button>
       </div>
     </div>
@@ -282,6 +289,33 @@
     <div class="kpi-grid" id="kpiGridClassification" style="margin-top:24px;"></div>
   </div>
 
+  <!-- TAB: BY BUCKET (CARDS + BUCKET SUMMARY AT BOTTOM) -->
+  <div id="tab-bucket" class="tab-pane hidden">
+    <div class="section-header">
+      <div>
+        <h2 class="section-title">Holdings by Bucket</h2>
+        <div class="text-muted" style="font-size:12.5px;">Earmark holdings toward savings or financial buckets with optional dollar targets, independent of rebalancing.</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-sm" id="btnCollapseBucket" data-collapse-target="bucketCardsContainer" onclick="toggleAllCardsIn('bucketCardsContainer')">Collapse All</button>
+        <button class="btn btn-sm btn-primary" onclick="openNewBucketModal()" title="Create a new bucket">+ New Bucket</button>
+      </div>
+    </div>
+
+    <div id="bucketCardsContainer" style="margin-top:20px;"></div>
+
+    <div class="card" style="margin-top:28px;">
+      <div class="section-header">
+        <h3 class="section-title">Buckets Summary</h3>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="table-clean" id="bucketSummaryTable" data-sort-table="bucketSummary"></table>
+      </div>
+    </div>
+
+    <div class="kpi-grid" id="kpiGridBucket" style="margin-top:24px;"></div>
+  </div>
+
   <!-- TAB: STRATEGY TARGETS (Under Portfolio) -->
   <div id="tab-strategy" class="tab-pane hidden">
     <div class="card" id="strategyEditorCard"></div>
@@ -455,6 +489,10 @@
           <input type="checkbox" id="cfgLookupOnLoad" onchange="saveAppConfigFromTab()" />
           <span data-i18n="lbl_lookup_on_load">Lookup prices on every load</span>
         </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;padding-bottom:6px;">
+          <input type="checkbox" id="cfgShowAccountDivMapping" onchange="saveAppConfigFromTab()" />
+          <span>Show Division Mapping in By Account</span>
+        </label>
       </div>
     </div>
   </div>
@@ -521,7 +559,7 @@
     <div style="margin-bottom:14px;position:relative;">
       <label class="kpi-label" style="display:block;margin-bottom:4px;">Symbol / ETF Ticker</label>
       <div style="position:relative;">
-        <input type="text" id="modalAddPosSymbolInput" class="input-clean" style="width:100%;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;" placeholder="Type ticker or name (e.g. ZCN, VTI, BMO, XEQT)..." autocomplete="off" oninput="onModalSymbolInput(this.value)" onkeydown="onModalSymbolKeyDown(event)" />
+        <input type="text" id="modalAddPosSymbolInput" class="input-clean" style="width:100%;font-weight:700;letter-spacing:0.02em;" placeholder="Type ticker or name (e.g. ZCN, VTI, House)..." autocomplete="off" oninput="onModalSymbolInput(this.value)" onkeydown="onModalSymbolKeyDown(event)" />
         <span id="modalAddPosSpinner" class="hidden" style="position:absolute;right:10px;top:8px;font-size:12px;color:var(--text-muted);">⏳</span>
       </div>
       <!-- Floating Autocomplete Suggestions -->
@@ -574,6 +612,12 @@
       </div>
     </div>
 
+    <!-- Division / Bucket Selection -->
+    <div style="margin-bottom:14px;">
+      <label class="kpi-label" style="display:block;margin-bottom:4px;">Division/Bucket</label>
+      <select id="modalAddPosDivBucket" class="select-clean" style="width:100%;"></select>
+    </div>
+
     <!-- Action Buttons -->
     <div style="display:flex;justify-content:flex-end;gap:8px;">
       <button type="button" class="btn" onclick="closeAddPositionModal()" title="Cancel and close dialog">Cancel</button>
@@ -590,10 +634,21 @@
       <button type="button" class="btn btn-ghost" onclick="closeEditPositionModal()" style="font-size:16px;padding:2px 8px;" title="Close dialog (Esc)">✕</button>
     </div>
 
-    <div style="margin-bottom:12px;">
-      <label class="kpi-label" style="display:block;margin-bottom:4px;">Account</label>
-      <select id="modalEditPosAccount" class="select-clean" style="width:100%;"></select>
+    <div style="display:flex;gap:12px;margin-bottom:10px;">
+      <div style="flex:1;">
+        <label class="kpi-label" style="display:block;margin-bottom:4px;">Account</label>
+        <select id="modalEditPosAccount" class="select-clean" style="width:100%;"></select>
+      </div>
+      <div style="flex:1;">
+        <label class="kpi-label" style="display:block;margin-bottom:4px;">Position Name / Symbol</label>
+        <input type="text" id="modalEditPosSymbol" class="input-clean" style="width:100%;font-weight:600;" onkeydown="if(event.key==='Enter') submitEditPositionModal()" />
+      </div>
     </div>
+
+    <label style="display:flex;align-items:center;gap:6px;margin-bottom:12px;font-size:12.5px;color:var(--text-secondary);cursor:pointer;">
+      <input type="checkbox" id="modalEditPosManualToggle" onchange="onToggleEditManualMode()" />
+      <span>Manual / Fixed-Price Asset (cash, property, GIC, or liability)</span>
+    </label>
 
     <div id="modalEditPosManualFields" class="hidden" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
       <div style="flex:2;min-width:160px;">
@@ -615,7 +670,7 @@
         <input type="text" inputmode="decimal" id="modalEditPosShares" class="input-clean" style="width:100%;text-align:right;font-weight:600;" onkeydown="if(event.key==='Enter') submitEditPositionModal()" />
       </div>
       <div style="flex:1;">
-        <label class="kpi-label" style="display:block;margin-bottom:4px;">Division Mapping</label>
+        <label class="kpi-label" style="display:block;margin-bottom:4px;">Division/Bucket</label>
         <select id="modalEditPosDivision" class="select-clean" style="width:100%;"></select>
       </div>
     </div>
@@ -679,6 +734,7 @@
     </div>
     <div style="display:flex;justify-content:flex-end;gap:8px;">
       <button type="button" id="appDialogCancelBtn" class="btn" onclick="closeAppDialog(null)">Cancel</button>
+      <button type="button" id="appDialogAltBtn" class="btn hidden" onclick="closeAppDialog('alt')">Restart</button>
       <button type="button" id="appDialogConfirmBtn" class="btn btn-primary" onclick="confirmAppDialog()">OK</button>
     </div>
   </div>
@@ -703,7 +759,7 @@
       <path d="M 16.44 26.25 L 16.22 22.07 A 0.46 0.46 0 0 1 16.75 21.6 L 20.91 22.33 L 20.35 20.78 A 0.31 0.31 0 0 1 20.45 20.43 L 25.0 16.74 L 23.97 16.26 A 0.31 0.31 0 0 1 23.81 15.88 L 24.71 13.11 L 22.09 13.67 A 0.31 0.31 0 0 1 21.73 13.49 L 21.23 12.29 L 19.18 14.49 A 0.31 0.31 0 0 1 18.64 14.21 L 19.63 9.12 L 18.05 10.04 A 0.31 0.31 0 0 1 17.61 9.9 L 16.0 6.75 L 14.39 9.9 A 0.31 0.31 0 0 1 13.95 10.04 L 12.37 9.12 L 13.36 14.21 A 0.31 0.31 0 0 1 12.82 14.49 L 10.77 12.29 L 10.27 13.49 A 0.31 0.31 0 0 1 9.91 13.67 L 7.29 13.11 L 8.19 15.88 A 0.31 0.31 0 0 1 8.03 16.26 L 7.0 16.74 L 11.55 20.43 A 0.31 0.31 0 0 1 11.65 20.78 L 11.09 22.33 L 15.25 21.6 A 0.46 0.46 0 0 1 15.78 22.07 L 15.56 26.25 Z" fill="#ffffff"/>
     </svg>
   </div>
-  <h1 data-i18n="app_stopped_title">Embsay has stopped</h1>
+  <h1 id="shutdownTitle" data-i18n="app_stopped_title">Embsay has stopped</h1>
   <p id="shutdownDesc" data-i18n="app_stopped_desc">The local server shut down. You can close this tab.</p>
 </div>
 

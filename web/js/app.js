@@ -146,7 +146,7 @@
       th_account: 'Account',
       th_account_type: 'Account Type',
       th_security: 'Security',
-      th_div_mapping: 'Division Mapping',
+      th_div_mapping: 'Division/Bucket',
       th_price: 'Price',
       th_shares: 'Shares',
       th_shares_principal: 'Shares / Principal',
@@ -368,11 +368,14 @@
       btn_report_issue: 'Report Issue',
       btn_report_issue_title: 'File a bug report or feature request on GitHub',
       btn_quit: 'Quit',
+      btn_restart: 'Restart',
       btn_quit_title: 'Quit and close the Embsay application',
       confirm_quit_title: 'Quit Embsay?',
       confirm_quit: 'This stops the local server and closes this tab\'s connection. Any pending edits are saved first.',
       app_stopped_title: 'Embsay has stopped',
       app_stopped_desc: 'The local server shut down. You can close this tab.',
+      app_restarting_title: 'Restarting Embsay…',
+      app_restarting_desc: 'The local server is restarting. This page will reload automatically.',
       lbl_idle_timeout: 'Idle Auto-Close (Hours)'
     },
     'fr-CA': {
@@ -501,7 +504,7 @@
       th_account: 'Compte',
       th_account_type: 'Type de compte',
       th_security: 'Titre / FNB',
-      th_div_mapping: 'Répartition par division',
+      th_div_mapping: 'Division / Compartiment',
       th_price: 'Cours',
       th_shares: 'Parts',
       th_shares_principal: 'Parts / Capital',
@@ -723,11 +726,14 @@
       btn_report_issue: 'Signaler un bogue',
       btn_report_issue_title: 'Créer un ticket ou signaler un problème sur GitHub',
       btn_quit: 'Quitter',
+      btn_restart: 'Redémarrer',
       btn_quit_title: 'Quitter et fermer l’application Embsay',
       confirm_quit_title: 'Quitter Embsay ?',
       confirm_quit: 'Ceci arrête le serveur local et ferme la connexion de cet onglet. Les modifications en attente sont d’abord enregistrées.',
       app_stopped_title: 'Embsay s’est arrêté',
       app_stopped_desc: 'Le serveur local s’est arrêté. Vous pouvez fermer cet onglet.',
+      app_restarting_title: 'Redémarrage d’Embsay…',
+      app_restarting_desc: 'Le serveur local redémarre. Cette page se rechargera automatiquement.',
       lbl_idle_timeout: 'Fermeture automatique si inactif (heures)'
     }
   };
@@ -1084,6 +1090,74 @@
     }
     switchMainView(currentMainView, false);
   }
+
+  function closePortfolioSwitcher() {
+    const menu = document.getElementById('portfolioSwitcherMenu');
+    const btn = document.getElementById('activePortfolioSwitcherBtn');
+    if (menu) menu.classList.add('hidden');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  }
+
+  function togglePortfolioSwitcher(event) {
+    event.stopPropagation();
+    const menu = document.getElementById('portfolioSwitcherMenu');
+    const btn = document.getElementById('activePortfolioSwitcherBtn');
+    if (!menu || !btn) return;
+    const willOpen = menu.classList.contains('hidden');
+    if (!willOpen) {
+      closePortfolioSwitcher();
+      return;
+    }
+
+    const allPorts = (appState && appState.portfolios) ? appState.portfolios : [];
+    const singles = allPorts.filter(p => !p.is_group);
+    const groups = allPorts.filter(p => p.is_group);
+
+    let html = '';
+    if (singles.length > 0) {
+      html += `<div class="port-switcher-section">Portfolios</div>`;
+      html += singles.map(p => {
+        const isActive = p.id === selectedPortfolio;
+        return `<button type="button" class="card-menu-item${isActive ? ' active' : ''}" role="menuitem"
+          data-port-id="${esc(p.id)}"
+          onclick="closePortfolioSwitcher(); goPortfolioView(this.dataset.portId)">
+          ${isActive ? '✓ ' : ''}💼 ${esc(p.name)}
+        </button>`;
+      }).join('');
+    }
+    if (groups.length > 0) {
+      if (singles.length > 0) html += `<div class="card-menu-sep"></div>`;
+      html += `<div class="port-switcher-section">Groups</div>`;
+      html += groups.map(g => {
+        const isActive = g.id === selectedPortfolio;
+        return `<button type="button" class="card-menu-item${isActive ? ' active' : ''}" role="menuitem"
+          data-port-id="${esc(g.id)}"
+          onclick="closePortfolioSwitcher(); goPortfolioView(this.dataset.portId)">
+          ${isActive ? '✓ ' : ''}⊞ ${esc(tTerm(g.name))}
+        </button>`;
+      }).join('');
+    }
+    if (!html) {
+      html = `<div class="text-muted" style="padding:8px 10px;font-size:12px;">No portfolios found</div>`;
+    }
+
+    menu.innerHTML = html;
+    menu.classList.remove('hidden');
+    btn.setAttribute('aria-expanded', 'true');
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.port-switcher-wrap')) {
+      closePortfolioSwitcher();
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closePortfolioSwitcher();
+  });
+
+  window.togglePortfolioSwitcher = togglePortfolioSwitcher;
+  window.closePortfolioSwitcher = closePortfolioSwitcher;
 
   function openPortfolioSelection(pushHistory = true) {
     switchMainView('port-mgmt', pushHistory);
@@ -1554,6 +1628,8 @@
       renderStrategyTab();
     } else if (subtab === 'classification') {
       if (typeof renderClassificationView === 'function') renderClassificationView();
+    } else if (subtab === 'bucket') {
+      if (typeof renderBucketView === 'function') renderBucketView();
     } else if (subtab === 'division') {
       if (typeof renderDivisionView === 'function') renderDivisionView();
     } else {
@@ -1569,7 +1645,7 @@
   }
 
   function switchTab(tab) {
-    if (tab === 'overview' || tab === 'division' || tab === 'classification' || tab === 'account' || tab === 'strategy') {
+    if (tab === 'overview' || tab === 'division' || tab === 'classification' || tab === 'account' || tab === 'bucket' || tab === 'strategy') {
       switchMainView('portfolio');
       switchPortfolioSubTab(tab);
     } else if (tab === 'port-mgmt' || tab === 'portfolios') {
@@ -1619,6 +1695,7 @@
     const labelEl = document.getElementById('appDialogInputLabel');
     const inputEl = document.getElementById('appDialogInput');
     const confirmBtn = document.getElementById('appDialogConfirmBtn');
+    const altBtn = document.getElementById('appDialogAltBtn');
     const cancelBtn = document.getElementById('appDialogCancelBtn');
     if (!modal) {
       if (opts.mode === 'prompt') return Promise.resolve(window.prompt(opts.label || opts.title || '', opts.initialValue || ''));
@@ -1653,6 +1730,14 @@
 
     cancelBtn.textContent = opts.cancelLabel || (typeof t === 'function' ? t('btn_cancel') : 'Cancel');
     cancelBtn.classList.toggle('hidden', _appDialogMode === 'info');
+    if (altBtn) {
+      if (opts.altLabel) {
+        altBtn.textContent = opts.altLabel;
+        altBtn.classList.remove('hidden');
+      } else {
+        altBtn.classList.add('hidden');
+      }
+    }
     confirmBtn.textContent = opts.confirmLabel || 'OK';
     confirmBtn.className = opts.danger ? 'btn btn-danger' : 'btn btn-primary';
 
@@ -1971,6 +2056,113 @@
 
   // --- Table Sorting & Helpers ---
 
+  let _justResizedCol = false;
+  let savedColumnWidths = {};
+  try {
+    savedColumnWidths = JSON.parse(localStorage.getItem('embsay_col_widths') || '{}') || {};
+  } catch (e) {
+    savedColumnWidths = {};
+  }
+
+  function getNormalizedColKey(th) {
+    if (th.dataset && th.dataset.colKey) return th.dataset.colKey;
+    const clone = th.cloneNode(true);
+    clone.querySelectorAll('.sort-icon, .col-resizer').forEach(el => el.remove());
+    return clone.textContent.trim().toLowerCase().replace(/\s+/g, ' ');
+  }
+
+  function applyColWidthAcrossTables(colKey, widthPx) {
+    if (!colKey || !widthPx) return;
+    document.querySelectorAll('table.table-clean').forEach(table => {
+      const ths = Array.from(table.querySelectorAll('thead tr th'));
+      const cols = Array.from(table.querySelectorAll('colgroup col'));
+      ths.forEach((th, idx) => {
+        if (getNormalizedColKey(th) === colKey) {
+          if (table.style.tableLayout !== 'fixed') {
+            // Freeze sibling widths before switching to fixed layout
+            if (cols.length === ths.length) {
+              ths.forEach((otherTh, oIdx) => {
+                if (!cols[oIdx].style.width) {
+                  cols[oIdx].style.width = Math.max(60, Math.round(otherTh.getBoundingClientRect().width)) + 'px';
+                }
+              });
+            }
+            table.style.tableLayout = 'fixed';
+          }
+          if (cols[idx]) cols[idx].style.width = widthPx + 'px';
+          th.style.width = widthPx + 'px';
+        }
+      });
+    });
+  }
+
+  function initResizableTables() {
+    document.querySelectorAll('table.table-clean').forEach(table => {
+      const ths = Array.from(table.querySelectorAll('thead tr th'));
+      if (ths.length === 0) return;
+
+      let colgroup = table.querySelector('colgroup');
+      if (!colgroup) {
+        colgroup = document.createElement('colgroup');
+        ths.forEach(() => colgroup.appendChild(document.createElement('col')));
+        table.insertBefore(colgroup, table.firstChild);
+      }
+      const cols = Array.from(colgroup.querySelectorAll('col'));
+
+      ths.forEach((th, idx) => {
+        const colKey = getNormalizedColKey(th);
+        th.dataset.colKey = colKey;
+
+        if (colKey && savedColumnWidths[colKey]) {
+          const w = savedColumnWidths[colKey];
+          if (table.style.tableLayout !== 'fixed') {
+            table.style.tableLayout = 'fixed';
+          }
+          if (cols[idx]) cols[idx].style.width = w + 'px';
+          th.style.width = w + 'px';
+        }
+
+        if (!th.querySelector('.col-resizer')) {
+          const resizer = document.createElement('span');
+          resizer.className = 'col-resizer';
+          resizer.title = 'Drag to resize column across all tables';
+          resizer.addEventListener('click', (e) => e.stopPropagation());
+          resizer.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            _justResizedCol = true;
+            resizer.classList.add('resizing');
+            const startX = e.clientX;
+            const startWidth = th.getBoundingClientRect().width;
+            let latestWidth = Math.max(60, Math.round(startWidth));
+
+            const onMove = (ev) => {
+              latestWidth = Math.max(60, Math.round(startWidth + (ev.clientX - startX)));
+              if (colKey) {
+                savedColumnWidths[colKey] = latestWidth;
+                applyColWidthAcrossTables(colKey, latestWidth);
+              }
+            };
+
+            const onUp = () => {
+              document.removeEventListener('mousemove', onMove);
+              document.removeEventListener('mouseup', onUp);
+              resizer.classList.remove('resizing');
+              try {
+                localStorage.setItem('embsay_col_widths', JSON.stringify(savedColumnWidths));
+              } catch (err) {}
+              setTimeout(() => { _justResizedCol = false; }, 60);
+            };
+
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+          });
+          th.appendChild(resizer);
+        }
+      });
+    });
+  }
+
   function initSortableTables() {
     document.querySelectorAll('table[data-sort-table]').forEach(table => {
       const tableKey = table.dataset.sortTable;
@@ -1991,6 +2183,7 @@
           th.appendChild(icon);
         }
         th.onclick = () => {
+          if (_justResizedCol) return;
           const prev = tableSortState[tableKey];
           const firstDir = th.classList.contains('left') ? 'asc' : 'desc';
           const secondDir = firstDir === 'asc' ? 'desc' : 'asc';
@@ -2013,6 +2206,7 @@
     if (typeof initDraggableTables === 'function') {
       initDraggableTables();
     }
+    initResizableTables();
   }
 
   function restoreTableOriginalOrder(table) {
@@ -2195,20 +2389,32 @@
   }
   window.openReportIssue = openReportIssue;
 
-  // --- Quit Application ---
+  // --- Quit / Restart Application ---
   async function quitApplication() {
-    const ok = await openConfirmModal({
+    const choice = await openConfirmModal({
       title: t('confirm_quit_title') || 'Quit Embsay?',
       message: t('confirm_quit') || 'This stops the local server and closes this tab\'s connection. Any pending edits are saved first.',
       confirmLabel: t('btn_quit') || 'Quit',
+      altLabel: t('btn_restart') || 'Restart',
       danger: true
     });
-    if (!ok) return;
+    if (!choice) return;
 
-    // Flush any focused inline edit before stopping the server
+    // Flush any focused inline edit before stopping/restarting the server
     if (document.activeElement && typeof document.activeElement.blur === 'function') {
       document.activeElement.blur();
       await new Promise(resolve => setTimeout(resolve, 150));
+    }
+
+    if (choice === 'alt') {
+      showShutdownOverlay(true);
+      try {
+        await fetch('/api/restart', { method: 'POST' });
+      } catch (e) {
+        // Server closes connection as it restarts
+      }
+      await waitForRestartAndReload();
+      return;
     }
 
     try {
@@ -2216,11 +2422,42 @@
     } catch (e) {
       // Server will shut down quickly
     }
-    showShutdownOverlay();
+    showShutdownOverlay(false);
   }
 
-  function showShutdownOverlay() {
-    document.title = t('app_stopped_title');
+  async function waitForRestartAndReload() {
+    const deadline = Date.now() + 20000;
+    await new Promise(resolve => setTimeout(resolve, 500));
+    while (Date.now() < deadline) {
+      try {
+        const res = await fetch('/api/state', { cache: 'no-store' });
+        if (res.ok) {
+          window.location.reload();
+          return;
+        }
+      } catch (e) {
+        // Still restarting
+      }
+      await new Promise(resolve => setTimeout(resolve, 350));
+    }
+    const descEl = document.getElementById('shutdownDesc');
+    if (descEl) {
+      descEl.textContent = 'Server did not respond in time. Please refresh or relaunch Embsay.';
+    }
+  }
+
+  function showShutdownOverlay(isRestart = false) {
+    const titleEl = document.getElementById('shutdownTitle');
+    const descEl = document.getElementById('shutdownDesc');
+    const titleText = isRestart
+      ? (t('app_restarting_title') || 'Restarting Embsay…')
+      : (t('app_stopped_title') || 'Embsay has stopped');
+    const descText = isRestart
+      ? (t('app_restarting_desc') || 'The local server is restarting. This page will reload automatically.')
+      : (t('app_stopped_desc') || 'The local server shut down. You can close this tab.');
+    document.title = titleText;
+    if (titleEl) titleEl.textContent = titleText;
+    if (descEl) descEl.textContent = descText;
     const overlay = document.getElementById('shutdownOverlay');
     if (overlay) {
       overlay.classList.remove('hidden');

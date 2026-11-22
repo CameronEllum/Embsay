@@ -24,6 +24,7 @@ type Server struct {
 	mux                  *http.ServeMux
 	lastInteractionNanos atomic.Int64
 	onExit               func()
+	onRestart            func()
 	browseDirectory      func() string
 }
 
@@ -40,6 +41,10 @@ func NewServer(svc *engine.Service, webFS fs.FS) *Server {
 
 func (s *Server) SetOnExit(fn func()) {
 	s.onExit = fn
+}
+
+func (s *Server) SetOnRestart(fn func()) {
+	s.onRestart = fn
 }
 
 func (s *Server) SetBrowseDirectory(fn func() string) {
@@ -86,6 +91,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/config", s.handleUpdateConfig)
 	s.mux.HandleFunc("/api/browse-directory", s.handleBrowseDirectory)
 	s.mux.HandleFunc("/api/quit", s.handleQuit)
+	s.mux.HandleFunc("/api/restart", s.handleRestart)
 	s.mux.HandleFunc("/api/activity", s.handleActivity)
 
 	s.mux.HandleFunc("/portfolios", s.handleIndex)
@@ -589,6 +595,24 @@ func (s *Server) handleQuit(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		time.Sleep(300 * time.Millisecond)
 		if s.onExit != nil {
+			s.onExit()
+		} else {
+			os.Exit(0)
+		}
+	}()
+}
+
+func (s *Server) handleRestart(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "restarting"})
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		if s.onRestart != nil {
+			s.onRestart()
+		} else if s.onExit != nil {
 			s.onExit()
 		} else {
 			os.Exit(0)

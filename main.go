@@ -125,6 +125,25 @@ func main() {
 		_ = listener.Close()
 		os.Exit(0)
 	})
+	srv.SetOnRestart(func() {
+		_ = listener.Close()
+		exePath, err := os.Executable()
+		if err != nil {
+			os.Exit(1)
+		}
+		args := []string{"-no-browser", "-addr", actualAddr}
+		if *baseDir != "." {
+			args = append(args, "-dir", *baseDir)
+		}
+		cmd := exec.Command(exePath, args...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Start(); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to restart Embsay: %v\n", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	})
 	srv.StartIdleTimeoutMonitor(nil)
 
 	targetURL := fmt.Sprintf("http://%s", actualAddr)

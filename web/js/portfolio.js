@@ -75,7 +75,7 @@
 
   function renderKpiGrids() {
     const html = buildKpiGridHtml();
-    ['kpiGridDivision', 'kpiGridClassification', 'kpiGridAccount', 'kpiGrid'].forEach(id => {
+    ['kpiGridDivision', 'kpiGridClassification', 'kpiGridAccount', 'kpiGridBucket', 'kpiGrid'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.innerHTML = html;
     });
@@ -85,6 +85,7 @@
     renderDivisionView();
     renderClassificationView();
     renderAccountView();
+    renderBucketView();
     initSortableTables();
   }
 
@@ -118,7 +119,7 @@
     const driftThreshold = (appState.config && appState.config.drift_threshold > 0) ? appState.config.drift_threshold : 0.01;
     const catPills = document.getElementById('categoryPillsSummary');
     if (catPills) {
-      catPills.innerHTML = (e.categories || []).map(c => {
+      catPills.innerHTML = (e.categories || []).filter(c => (c.target_ratio || 0) > 0).map(c => {
         const drift = c.ratio_miss;
         const isRed = Math.abs(drift) >= driftThreshold;
         const cls = isRed ? 'pill-red' : 'pill-green';
@@ -126,8 +127,8 @@
       }).join('');
     }
 
-    // Stacked Bars (Actual vs Target)
-    const divs = e.divisions || [];
+    // Stacked Bars (Actual vs Target) — omit 0% tracking-only divisions
+    const divs = (e.divisions || []).filter(d => (d.target_ratio || 0) > 0);
     const actualSegs = divs.map((d, i) => {
       const color = DIVISION_COLORS[i % DIVISION_COLORS.length];
       const w = Math.max(0, d.current_ratio * 100);
@@ -271,6 +272,65 @@
     return !!(def && def.exchange === 'MANUAL');
   }
 
+  function formatSecurityNameHtml(symbol, symbolName) {
+    const sym = String(symbol || '');
+    const desc = String(symbolName || '').trim();
+    const showDesc = !rebalanceMode && desc && desc.toLowerCase() !== sym.trim().toLowerCase();
+    return `<b title="${esc(desc || sym)}">${esc(sym)}</b>${showDesc ? `<span class="text-muted" style="font-size:12.5px;margin-left:4px;">${esc(desc)}</span>` : ''}`;
+  }
+
+  function buildDivBucketOptionsHtml() {
+    const divNames = new Set();
+    ((currentEval && currentEval.divisions) || []).forEach(d => divNames.add(d.division_name));
+    ((appState && appState.divisions && appState.divisions.divisions) || []).forEach(d => divNames.add(d.name));
+    const strat = (currentPortfolioConfig && currentPortfolioConfig.strategy) || {};
+    Object.keys(strat.divisions || {}).forEach(dn => divNames.add(dn));
+    Object.values(strat.category_splits || {}).forEach(m => Object.keys(m || {}).forEach(dn => divNames.add(dn)));
+
+    const bucketNames = new Set();
+    ((currentPortfolioConfig && currentPortfolioConfig.buckets) || []).forEach(b => { if (b.name) bucketNames.add(b.name); });
+    ((currentEval && currentEval.bucket_summaries) || []).forEach(b => { if (b.bucket) bucketNames.add(b.bucket); });
+    ((currentPortfolioConfig && currentPortfolioConfig.holdings) || []).forEach(x => { if (x.bucket) bucketNames.add(x.bucket); });
+
+    let opts = `<option value="">Use Symbol Default</option>`;
+    opts += `<option value="__none__">None (No Division / Bucket)</option>`;
+    Array.from(divNames).forEach(dn => {
+      opts += `<option value="${esc(dn)}">${esc(tTerm(dn))}</option>`;
+    });
+    if (bucketNames.size > 0) {
+      opts += `<option disabled>──────────</option>`;
+      Array.from(bucketNames).forEach(bn => {
+        opts += `<option value="bucket:${esc(bn)}">${esc(bn)}</option>`;
+      });
+    }
+    return opts;
+  }
+
+  function applyDivBucketToHolding(h, val) {
+    if (!h) return;
+    if (val && val.startsWith('bucket:')) {
+      h.bucket = val.slice(7);
+      h.no_division = true;
+      delete h.division;
+      delete h.divisions;
+    } else if (val === '__none__') {
+      h.no_division = true;
+      delete h.division;
+      delete h.divisions;
+      delete h.bucket;
+    } else if (val) {
+      delete h.no_division;
+      h.division = val;
+      delete h.divisions;
+      delete h.bucket;
+    } else {
+      delete h.no_division;
+      delete h.division;
+      delete h.divisions;
+      delete h.bucket;
+    }
+  }
+
   function renderEditableSharesCell(holdingID, shares, symbol, account, isGrp) {
     if (isManualSymbol(symbol)) return `<span class="text-muted">—</span>`;
     if (isGrp) return `<span>${fmtNum(shares)}</span>`;
@@ -287,9 +347,14 @@
       return `<b>${fmtMoney(marketValueCAD)}</b>`;
     }
     const nativeAmount = round4(shares * sharePrice);
+    const formatted = fmtMoney(nativeAmount);
     const cadHint = currency === 'USD' ? `<div class="text-muted" style="font-size:11px;">${fmtMoney(marketValueCAD)}</div>` : '';
-    return `<input type="text" inputmode="decimal" class="inline-num" style="font-weight:700;" value="${nativeAmount}"
-      onchange="onQuickChangeManualAmount('${holdingID}', '${esc(symbol)}', this.value)"
+    return `<input type="text" inputmode="decimal" class="inline-num" style="font-weight:700;"
+      value="${esc(formatted)}" data-raw="${Math.round(nativeAmount)}" data-formatted="${esc(formatted)}"
+      onfocus="this.value=this.dataset.raw;this.select();"
+      onblur="if(this.value===this.dataset.raw){this.value=this.dataset.formatted;}"
+      onchange="onQuickChangeManualAmount('${holdingID}', this.dataset.sym, this.value)"
+      data-sym="${esc(symbol)}"
       title="Edit amount (${esc(currency)})" />${cadHint}`;
   }
 
@@ -333,8 +398,7 @@
           <tr data-holding-id="${esc(r.holding_id)}">
             <td class="left">${dragHandleHtml(isGrp)}${accCellHtml}</td>
             <td class="left">
-              <b title="${esc(r.symbol_name)}">${esc(r.symbol)}</b>
-              ${!rebalanceMode && r.symbol_name ? `<span class="text-muted" style="font-size:12.5px;margin-left:4px;">${esc(r.symbol_name)}</span>` : ''}
+              ${formatSecurityNameHtml(r.symbol, r.symbol_name)}
               ${compBadge}
             </td>
             <td class="text-muted">${fmtPrice(r.share_price)} <span style="font-size:11px;">${esc(r.currency)}</span></td>
@@ -360,6 +424,7 @@
         <div class="div-card${isCollapsed ? ' collapsed' : ''}" data-division="${esc(div.division_name)}" data-card-key="${esc(cardKey)}">
           <div class="div-card-header" onclick="onDivCardHeaderClick(event)">
             <div class="div-title-group">
+              ${dragHandleHtml(isGrp)}
               <span class="card-chevron">▾</span>
               <span class="legend-dot" style="background:${color};width:12px;height:12px;"></span>
               <span style="font-size:15px;font-weight:700;">${esc(tTerm(div.division_name))}</span>
@@ -465,10 +530,9 @@
 
             return `
               <tr data-holding-id="${esc(s.holding_id)}">
-                <td class="left">${dragHandleHtml(isGrp)}${accCellHtml}</td>
+                <td class="left wrap-text">${dragHandleHtml(isGrp)}${accCellHtml}</td>
                 <td class="left wrap-text">
-                  <b title="${esc(s.symbol_name)}">${esc(s.symbol)}</b>
-                  ${!rebalanceMode && s.symbol_name ? `<span class="text-muted" style="font-size:12.5px;margin-left:4px;">${esc(s.symbol_name)}</span>` : ''}
+                  ${formatSecurityNameHtml(s.symbol, s.symbol_name)}
                   ${compPill}
                 </td>
                 <td class="text-muted">${fmtPrice(s.share_price)} <span style="font-size:11px;">${esc(s.currency)}</span></td>
@@ -500,7 +564,7 @@
             <div style="overflow-x:auto;margin-bottom:12px;">
               <table class="table-clean" style="table-layout:fixed;width:100%;" data-sort-table="cls_${esc(cls.account_type)}_${esc(div.division_name)}" data-drag-scope="holdings">
                 <colgroup>
-                  <col style="width:130px;">
+                  <col style="width:185px;">
                   <col>
                   <col style="width:110px;">
                   <col style="width:105px;">
@@ -509,7 +573,7 @@
                 </colgroup>
                 <thead>
                   <tr>
-                    <th class="left" style="width:130px;">${esc(t('th_account'))}</th>
+                    <th class="left wrap-text" style="width:185px;">${esc(t('th_account'))}</th>
                     <th class="left wrap-text">${esc(t('th_security'))}</th>
                     <th style="width:110px;">${esc(t('th_price'))}</th>
                     <th style="width:105px;">${esc(t('th_shares'))}</th>
@@ -529,17 +593,17 @@
           const unassignedVal = unassigned.reduce((sum, h) => sum + (afterTaxMode() ? (h.allocation_value_cad ?? h.market_value_cad) : h.market_value_cad), 0);
           const unassignedRows = unassigned.map(h => {
             const accCellHtml = `<b>${esc(h.account)}</b>`;
-            const portPct = e.current_total_cad > 0 ? (h.market_value_cad / e.current_total_cad) : 0;
+            const portDenom = (e.has_excluded_accounts && e.net_worth_cad > 0) ? e.net_worth_cad : e.current_total_cad;
+        const portPct = portDenom > 0 ? (h.market_value_cad / portDenom) : 0;
             return `
               <tr data-holding-id="${esc(h.holding_id)}">
-                <td class="left">${dragHandleHtml(isGrp)}${accCellHtml}</td>
+                <td class="left wrap-text">${dragHandleHtml(isGrp)}${accCellHtml}</td>
                 <td class="left wrap-text">
-                  <b title="${esc(h.symbol_name)}">${esc(h.symbol)}</b>
-                  ${!rebalanceMode && h.symbol_name ? `<span class="text-muted" style="font-size:12.5px;margin-left:4px;">${esc(h.symbol_name)}</span>` : ''}
+                  ${formatSecurityNameHtml(h.symbol, h.symbol_name)}
                 </td>
-                <td class="text-muted">${fmtPrice(h.share_price)} <span style="font-size:11px;">${esc(h.currency)}</span></td>
+                <td class="text-muted">${isManualSymbol(h.symbol) ? '—' : `${fmtPrice(h.share_price)} <span style="font-size:11px;">${esc(h.currency)}</span>`}</td>
                 <td>${renderEditableSharesCell(h.holding_id, h.shares, h.symbol, h.account, isGrp)}</td>
-                <td><b>${fmtMoney(h.market_value_cad)}</b></td>
+                <td>${renderManualOrValueCell(h.holding_id, h.symbol, h.shares, h.share_price, h.market_value_cad, h.currency, isGrp)}</td>
                 <td>${fmtPct(portPct, 1)}</td>
               </tr>
             `;
@@ -557,7 +621,7 @@
             <div style="overflow-x:auto;margin-bottom:12px;">
               <table class="table-clean" style="table-layout:fixed;width:100%;" data-drag-scope="holdings">
                 <colgroup>
-                  <col style="width:130px;">
+                  <col style="width:185px;">
                   <col>
                   <col style="width:110px;">
                   <col style="width:105px;">
@@ -566,7 +630,7 @@
                 </colgroup>
                 <thead>
                   <tr>
-                    <th class="left" style="width:130px;">${esc(t('th_account'))}</th>
+                    <th class="left wrap-text" style="width:185px;">${esc(t('th_account'))}</th>
                     <th class="left wrap-text">${esc(t('th_security'))}</th>
                     <th style="width:110px;">${esc(t('th_price'))}</th>
                     <th style="width:105px;">${esc(t('th_shares'))}</th>
@@ -611,14 +675,14 @@
           .map(([d, w]) => `<span class="pill pill-neutral" style="margin-right:4px;">${esc(tTerm(d))}: ${fmtPct(w, 1)}</span>`)
           .join('');
         const accCellHtml = `<b>${esc(h.account)}</b>`;
-        const portPct = e.current_total_cad > 0 ? (h.market_value_cad / e.current_total_cad) : 0;
+        const portDenom = (e.has_excluded_accounts && e.net_worth_cad > 0) ? e.net_worth_cad : e.current_total_cad;
+        const portPct = portDenom > 0 ? (h.market_value_cad / portDenom) : 0;
 
         return `
           <tr data-holding-id="${esc(h.holding_id)}">
             <td class="left">${dragHandleHtml(isGrp)}${accCellHtml}</td>
             <td class="left wrap-text" style="max-width:260px;">
-              <b title="${esc(h.symbol_name)}">${esc(h.symbol)}</b>
-              ${!rebalanceMode && h.symbol_name ? `<span class="text-muted" style="font-size:12.5px;margin-left:4px;">${esc(h.symbol_name)}</span>` : ''}
+              ${formatSecurityNameHtml(h.symbol, h.symbol_name)}
             </td>
             <td class="left wrap-text" style="line-height:1.7;">${breakdownPills || '<span class="text-muted" style="font-size:12px;">—</span>'}</td>
             <td class="text-muted">${isManualSymbol(h.symbol) ? '—' : `${fmtPrice(h.share_price)} <span style="font-size:11px;">${esc(h.currency)}</span>`}</td>
@@ -635,6 +699,7 @@
         <div class="div-card${clsCollapsed ? ' collapsed' : ''}" data-card-key="${esc(clsCardKey)}">
           <div class="div-card-header" onclick="onDivCardHeaderClick(event)">
             <div class="div-title-group">
+              ${dragHandleHtml(isGrp)}
               <span class="card-chevron">▾</span>
               <span class="legend-dot" style="background:${color};width:12px;height:12px;"></span>
               <span style="font-size:15px;font-weight:700;">${esc(tTerm(cls.name))}</span>
@@ -684,6 +749,7 @@
     }
 
     const isGrp = isGroupSelection(selectedPortfolio);
+    const showDivMapping = !(appState && appState.config && appState.config.show_account_division_mapping === false);
     const divs = (currentEval && currentEval.divisions && currentEval.divisions.length > 0)
       ? currentEval.divisions.map(d => ({ name: d.division_name, category: d.category_name }))
       : (appState.divisions.divisions || []);
@@ -727,7 +793,8 @@
         const breakdownPills = Object.entries(h.division_breakdown || {})
           .map(([d, w]) => `<span class="pill pill-neutral" style="margin-right:4px;" title="${esc(tTerm(d))}: ${fmtPct(w, 1)} target division allocation">${esc(tTerm(d))}: ${fmtPct(w, 1)}</span>`)
           .join('');
-        const portPct = e.current_total_cad > 0 ? (h.market_value_cad / e.current_total_cad) : 0;
+        const portDenom = (e.has_excluded_accounts && e.net_worth_cad > 0) ? e.net_worth_cad : e.current_total_cad;
+        const portPct = portDenom > 0 ? (h.market_value_cad / portDenom) : 0;
         const delHoldingTitle = esc(t('title_delete_position', { sym: h.symbol }) || `Delete position ${h.symbol}`);
 
         const rebalArr = h.rebalance_divisions || [];
@@ -754,19 +821,22 @@
           </select>
         ` : `<span>${esc(currentRebalVal || '—')}</span>`;
 
+        const bucketPillHtml = h.bucket
+          ? `<span class="pill pill-primary" style="margin-right:4px;" title="Bucket: ${esc(h.bucket)}">${esc(h.bucket)}</span>`
+          : '';
+        const divBucketCellHtml = [breakdownPills, bucketPillHtml].filter(Boolean).join('');
         const secLabelHtml = !isGrp
           ? `<span class="sec-edit-link" onclick="openEditPositionModal(this.closest('tr').dataset.holdingId)" title="Edit or delete ${esc(h.symbol)}">
-               <b>${esc(h.symbol)}</b>
-               ${!rebalanceMode && h.symbol_name ? `<span class="text-muted" style="font-size:12.5px;margin-left:4px;">${esc(h.symbol_name)}</span>` : ''}
+               ${formatSecurityNameHtml(h.symbol, h.symbol_name)}
              </span>`
-          : `<b title="${esc(h.symbol_name)}">${esc(h.symbol)}</b>${!rebalanceMode && h.symbol_name ? `<span class="text-muted" style="font-size:12.5px;margin-left:4px;">${esc(h.symbol_name)}</span>` : ''}`;
+          : formatSecurityNameHtml(h.symbol, h.symbol_name);
 
         return `
           <tr data-holding-id="${esc(h.holding_id)}">
-            <td class="left">
+            <td class="left wrap-text">
               ${dragHandleHtml(isGrp)}${secLabelHtml}
             </td>
-            <td class="left">${breakdownPills || '<span class="text-muted" style="font-size:12px;">—</span>'}</td>
+            ${showDivMapping ? `<td class="left wrap-text" style="line-height:1.7;">${divBucketCellHtml || '<span class="text-muted" style="font-size:12px;">—</span>'}</td>` : ''}
             <td class="text-muted">${isManualSymbol(h.symbol) ? '—' : `${fmtPrice(h.share_price)} <span style="font-size:11px;">${esc(h.currency)}</span>`}</td>
             <td>${renderEditableSharesCell(h.holding_id, h.shares, h.symbol, acc.account, isGrp)}</td>
             <td>${renderManualOrValueCell(h.holding_id, h.symbol, h.shares, h.share_price, h.market_value_cad, h.currency, isGrp)}</td>
@@ -775,7 +845,7 @@
         `;
       }).join('');
 
-      const colSpan = 6;
+      const colSpan = showDivMapping ? 6 : 5;
 
       const accCardKey = `acc:${acc.account}`;
       const accCollapsed = collapsedCards.has(accCardKey);
@@ -790,18 +860,25 @@
               ${acc.excluded_from_rebalancing ? `<span class="pill pill-neutral" style="font-size:11px;" title="Included in Net Worth, excluded from rebalancing">Net Worth Only</span>` : ''}
             </div>
             <div class="div-metrics-group" style="display:flex;align-items:center;gap:12px;">
-              <div><span class="text-muted">${esc(t('lbl_positions_colon'))}</span> <b>${acc.position_count || (acc.holdings || []).length}</b></div>
               <div><span class="text-muted">${esc(t('lbl_value_colon'))}</span> <b>${fmtMoney(acc.market_value_cad)}</b></div>
               <div><span class="text-muted">${esc(t('lbl_portfolio_weight_colon'))}</span> <b>${fmtPct(acc.portfolio_ratio, 1)}</b></div>
               ${cardActionsHtml}
             </div>
           </div>
           <div class="div-card-body" style="overflow-x:auto;">
-            <table class="table-clean" data-sort-table="acc_${esc(acc.account)}" data-drag-scope="holdings" data-account="${esc(acc.account)}">
+            <table class="table-clean" style="table-layout:fixed;width:100%;" data-sort-table="acc_${esc(acc.account)}" data-drag-scope="holdings" data-account="${esc(acc.account)}">
+              <colgroup>
+                <col>
+                ${showDivMapping ? '<col style="width:260px;">' : ''}
+                <col style="width:110px;">
+                <col style="width:105px;">
+                <col style="width:125px;">
+                <col style="width:110px;">
+              </colgroup>
               <thead>
                 <tr>
                   <th class="left" title="Ticker symbol and asset description">${esc(t('th_security'))}</th>
-                  <th class="left" title="Asset allocation breakdown across portfolio divisions">${esc(t('th_div_mapping'))}</th>
+                  ${showDivMapping ? `<th class="left" title="Asset allocation breakdown across portfolio divisions">${esc(t('th_div_mapping'))}</th>` : ''}
                   <th title="Latest market quote and trading currency">${esc(t('th_price'))}</th>
                   <th title="Share quantity held in this account (editable)">${esc(t('th_shares'))}</th>
                   <th title="Total market value converted to Canadian Dollars">${esc(t('th_value_cad'))}</th>
@@ -863,7 +940,6 @@
           <th class="left">${esc(t('th_account'))}</th>
           <th class="left">${esc(t('th_classification'))}</th>
           <th>${esc(afterTaxMode() ? t('th_allocation_value') : t('th_value_cad'))}</th>
-          <th>${esc(t('th_weight'))}</th>
         </tr>
       </thead>
       <tbody>
@@ -887,7 +963,6 @@
               <b>${fmtMoney(afterTaxMode() ? (a.allocation_value_cad ?? a.market_value_cad) : a.market_value_cad)}</b>
               ${afterTaxMode() ? `<div class="text-muted" title="${esc(t('title_gross_value', { gross: fmtMoney(a.market_value_cad) }))}" style="font-size:11px;font-weight:500;">${esc(t('lbl_value_colon'))} ${fmtMoney(a.market_value_cad)}</div>` : ''}
             </td>
-            <td>${fmtPct(a.portfolio_ratio, 1)}</td>
           </tr>
         `;
         }).join('')}
@@ -1016,15 +1091,28 @@
       draft.divisions = nextDivs;
     } else {
       const nextCats = {};
+      const catRenames = {};
       document.querySelectorAll('.strat-cat-row').forEach(row => {
-        const cat = row.dataset.cat;
+        const oldCat = row.dataset.cat;
+        const nameInp = row.querySelector('.strat-cat-name-input');
+        const newCat = nameInp ? nameInp.value.trim() : oldCat;
         const pctInp = row.querySelector('.strat-cat-pct-input');
         const pct = pctInp ? (parseFloat(pctInp.value) || 0) / 100.0 : 0;
-        if (cat) nextCats[cat] = pct;
+        if (newCat) {
+          nextCats[newCat] = pct;
+          if (oldCat && newCat !== oldCat) catRenames[oldCat] = newCat;
+        }
       });
       draft.categories = nextCats;
+      for (const [oldCat, newCat] of Object.entries(catRenames)) {
+        if (draft.category_splits && draft.category_splits[oldCat]) {
+          draft.category_splits[newCat] = draft.category_splits[oldCat];
+          delete draft.category_splits[oldCat];
+        }
+      }
       document.querySelectorAll('.strat-split-row').forEach(row => {
-        const c = row.dataset.cat;
+        const rawCat = row.dataset.cat;
+        const c = catRenames[rawCat] || rawCat;
         const d = row.dataset.div;
         const pctInp = row.querySelector('.strat-split-pct-input');
         const pct = pctInp ? (parseFloat(pctInp.value) || 0) / 100.0 : 0;
@@ -1163,10 +1251,10 @@
               return `
               <tr class="strat-div-row" data-name="${esc(name)}" data-row-key="${esc(name)}">
                 <td class="left">
-                  ${dragHandleHtml(false)}<input type="text" class="input-clean strat-div-name-input" value="${esc(name)}" style="width:260px;font-weight:600;" />
+                  ${dragHandleHtml(false)}<input type="text" class="input-clean strat-div-name-input" value="${esc(name)}" onchange="onStratFieldAutoSave()" style="width:260px;font-weight:600;" />
                 </td>
                 <td>
-                  <input type="text" inputmode="decimal" class="inline-num strat-flat-pct-input" data-div="${esc(name)}" value="${round4(ratio * 100)}" oninput="updateStratTargetSum()" style="width:90px;" />%
+                  <input type="text" inputmode="decimal" class="inline-num strat-flat-pct-input" data-div="${esc(name)}" value="${round4(ratio * 100)}" oninput="updateStratTargetSum()" onchange="onStratFieldAutoSave()" style="width:90px;" />%
                 </td>
                 <td class="center">
                   <button class="btn btn-ghost" style="color:var(--red);padding:2px 8px;" onclick="removeStratDivision('${esc(name)}')" title="Delete target division '${esc(name)}'">✕</button>
@@ -1195,8 +1283,8 @@
               const ratio = draft.categories[cat];
               return `
               <tr class="strat-cat-row" data-cat="${esc(cat)}" data-row-key="${esc(cat)}">
-                <td class="left">${dragHandleHtml(false)}<input type="text" class="input-clean strat-cat-name-input" value="${esc(cat)}" style="width:240px;font-weight:600;" /></td>
-                <td><input type="text" inputmode="decimal" class="inline-num strat-cat-pct-input" data-cat="${esc(cat)}" value="${round4(ratio * 100)}" oninput="updateStratTargetSum()" style="width:90px;" />%</td>
+                <td class="left">${dragHandleHtml(false)}<input type="text" class="input-clean strat-cat-name-input" value="${esc(cat)}" onchange="onStratFieldAutoSave()" style="width:240px;font-weight:600;" /></td>
+                <td><input type="text" inputmode="decimal" class="inline-num strat-cat-pct-input" data-cat="${esc(cat)}" value="${round4(ratio * 100)}" oninput="updateStratTargetSum()" onchange="onStratFieldAutoSave()" style="width:90px;" />%</td>
                 <td class="center"><button class="btn btn-ghost" style="color:var(--red);padding:2px 8px;" onclick="removeStratCategory('${esc(cat)}')" title="Delete target category '${esc(cat)}' and all child divisions">✕</button></td>
               </tr>
             `;
@@ -1208,7 +1296,10 @@
           <button class="btn" onclick="addStratCategory()">${esc(t('strat_add_category_btn'))}</button>
         </div>
 
-        <div class="kpi-label" style="margin-bottom:6px;">${esc(t('strat_step2_divs'))}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px;flex-wrap:wrap;">
+          <div class="kpi-label">${esc(t('strat_step2_divs'))}</div>
+          <div id="stratSplitTargetIndicators" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+        </div>
         <table class="table-clean" data-drag-scope="divisionOrder" style="margin-bottom:14px;">
           <thead><tr><th class="left">${esc(t('th_division'))}</th><th class="left">${esc(t('th_category'))}</th><th>${esc(t('th_split_within_cat'))}</th><th>${esc(t('th_eff_portfolio_pct'))}</th><th class="center">${esc(t('th_remove'))}</th></tr></thead>
           <tbody>
@@ -1222,8 +1313,8 @@
                   <tr class="strat-split-row" data-cat="${esc(cat)}" data-div="${esc(div)}" data-row-key="${esc(div)}">
                     <td class="left">${dragHandleHtml(false)}<b>${esc(div)}</b></td>
                     <td class="left"><span class="pill pill-neutral">${esc(cat)}</span></td>
-                    <td><input type="text" inputmode="decimal" class="inline-num strat-split-pct-input" data-cat="${esc(cat)}" data-div="${esc(div)}" value="${round4(splitRatio * 100)}" oninput="updateStratTargetSum()" style="width:80px;" />%</td>
-                    <td class="text-muted"><b>${eff.toFixed(1)}%</b></td>
+                    <td><input type="text" inputmode="decimal" class="inline-num strat-split-pct-input" data-cat="${esc(cat)}" data-div="${esc(div)}" value="${round4(splitRatio * 100)}" oninput="updateStratTargetSum()" onchange="onStratFieldAutoSave()" style="width:80px;" />%</td>
+                    <td class="text-muted strat-eff-pct-cell"><b>${eff.toFixed(1)}%</b></td>
                     <td class="center"><button class="btn btn-ghost" style="color:var(--red);padding:2px 8px;" onclick="removeHierDivision('${esc(cat)}', '${esc(div)}')" title="Delete division '${esc(div)}' from category '${esc(cat)}'">✕</button></td>
                   </tr>
                 `;
@@ -1241,15 +1332,14 @@
       `;
     }
 
-    sHtml += `
-      <div style="margin-top:20px;display:flex;gap:12px;align-items:center;">
-        <button class="btn btn-primary" onclick="saveStrategy()">${esc(t('btn_save_strategy'))}</button>
-      </div>
-    `;
-
     card.innerHTML = sHtml;
     updateStratTargetSum();
     initDraggableTables();
+  }
+
+  async function onStratFieldAutoSave() {
+    syncStratInputsToDraft();
+    await persistStrategyDraft('Saved strategy');
   }
 
   function toggleEditStratNotes(editing) {
@@ -1280,6 +1370,42 @@
     const p = currentPortfolioConfig;
     if (!draft || !p) return;
 
+    const issues = [];
+    if (draft.mode === 'flat') {
+      const flatSum = Object.values(draft.divisions || {}).reduce((a, b) => a + (Number(b) || 0), 0) * 100;
+      if (Math.abs(flatSum - 100) >= 0.05) {
+        issues.push(`Division targets sum to ${flatSum.toFixed(1)}% (should be 100%)`);
+      }
+    } else {
+      const catSum = Object.values(draft.categories || {}).reduce((a, b) => a + (Number(b) || 0), 0) * 100;
+      if (Math.abs(catSum - 100) >= 0.05) {
+        issues.push(`Category targets sum to ${catSum.toFixed(1)}% (should be 100%)`);
+      }
+      for (const [cat, splits] of Object.entries(draft.category_splits || {})) {
+        const entries = Object.values(splits || {});
+        if (entries.length === 0) continue;
+        const sSum = entries.reduce((a, b) => a + (Number(b) || 0), 0) * 100;
+        if (Math.abs(sSum - 100) >= 0.05) {
+          issues.push(`${cat} splits sum to ${sSum.toFixed(1)}% (should be 100%)`);
+        }
+      }
+    }
+    if (issues.length > 0) {
+      const ok = await openConfirmModal({
+        title: 'Strategy Targets Do Not Sum to 100%',
+        message: `${issues.join(' • ')}. Save anyway?`,
+        confirmLabel: 'Save Anyway'
+      });
+      if (!ok) return;
+    }
+
+    await persistStrategyDraft('Saved portfolio strategy & notes');
+  }
+
+  async function persistStrategyDraft(toastMsg) {
+    const draft = window._stratDraft;
+    const p = currentPortfolioConfig;
+    if (!draft || !p) return false;
     if (!p.strategy) p.strategy = {};
     syncAfterTaxFieldsIntoDraft();
     p.strategy.mode = draft.mode;
@@ -1300,11 +1426,12 @@
     if (!res.ok) {
       const err = await res.json().catch(() => null);
       showToast(err && err.error ? err.error : 'Error saving strategy');
-      return;
+      return false;
     }
     await loadStateAndEvaluate();
     renderStrategyTab();
-    showToast('Saved portfolio strategy & notes');
+    if (toastMsg) showToast(toastMsg);
+    return true;
   }
 
   function syncAfterTaxFieldsIntoDraft() {
@@ -1347,19 +1474,127 @@
     }
     saveAfterTaxRate(value);
   }
+  async function addStratCategory() {
+    syncStratInputsToDraft();
+    const draft = window._stratDraft;
+    const inp = document.getElementById('newStratCatInput');
+    const name = inp ? inp.value.trim() : '';
+    if (!draft || !name) return;
+    if (!draft.categories) draft.categories = {};
+    if (!draft.category_splits) draft.category_splits = {};
+    if (draft.categories[name] !== undefined) {
+      showToast(`Category "${name}" already exists`);
+      return;
+    }
+    draft.categories[name] = 0;
+    if (!draft.category_splits[name] || Object.keys(draft.category_splits[name]).length === 0) {
+      draft.category_splits[name] = { [name]: 1.0 };
+    }
+    await persistStrategyDraft(`Added category "${name}"`);
+  }
+
+  async function removeStratCategory(cat) {
+    syncStratInputsToDraft();
+    const draft = window._stratDraft;
+    if (!draft || !cat) return;
+    if (draft.categories) delete draft.categories[cat];
+    if (draft.category_splits) delete draft.category_splits[cat];
+    await persistStrategyDraft(`Removed category "${cat}"`);
+  }
+
+  async function addHierDivision() {
+    syncStratInputsToDraft();
+    const draft = window._stratDraft;
+    const inp = document.getElementById('newHierDivInput');
+    const catSel = document.getElementById('newHierDivCatSelect');
+    const divName = inp ? inp.value.trim() : '';
+    const catName = catSel ? catSel.value : '';
+    if (!draft || !divName || !catName) return;
+    if (!draft.category_splits) draft.category_splits = {};
+    if (!draft.category_splits[catName]) draft.category_splits[catName] = {};
+    if (draft.category_splits[catName][divName] !== undefined) {
+      showToast(`Division "${divName}" already exists in "${catName}"`);
+      return;
+    }
+    draft.category_splits[catName][divName] = 0;
+    await persistStrategyDraft(`Added division "${divName}"`);
+  }
+
+  async function removeHierDivision(cat, div) {
+    syncStratInputsToDraft();
+    const draft = window._stratDraft;
+    if (!draft || !cat || !div) return;
+    if (draft.category_splits && draft.category_splits[cat]) {
+      delete draft.category_splits[cat][div];
+    }
+    await persistStrategyDraft(`Removed division "${div}"`);
+  }
+
+  async function addStratDivision() {
+    syncStratInputsToDraft();
+    const draft = window._stratDraft;
+    const inp = document.getElementById('newStratDivInput');
+    const pctInp = document.getElementById('newStratDivPct');
+    const name = inp ? inp.value.trim() : '';
+    const pct = pctInp ? (parseFloat(pctInp.value) || 0) : 0;
+    if (!draft || !name) return;
+    if (!draft.divisions) draft.divisions = {};
+    if (draft.divisions[name] !== undefined) {
+      showToast(`Division "${name}" already exists`);
+      return;
+    }
+    draft.divisions[name] = pct / 100.0;
+    await persistStrategyDraft(`Added division "${name}"`);
+  }
+
+  async function removeStratDivision(name) {
+    syncStratInputsToDraft();
+    const draft = window._stratDraft;
+    if (!draft || !name) return;
+    if (draft.divisions) delete draft.divisions[name];
+    await persistStrategyDraft(`Removed division "${name}"`);
+  }
+
   function updateStratTargetSum() {
     const draft = window._stratDraft;
     const el = document.getElementById('stratTotalTargetIndicator');
     if (!draft || !el) return;
     let sum = 0;
+    const catPcts = {};
     if (draft.mode === 'flat') {
       document.querySelectorAll('.strat-flat-pct-input').forEach(inp => {
         sum += parseFloat(inp.value) || 0;
       });
     } else {
       document.querySelectorAll('.strat-cat-pct-input').forEach(inp => {
-        sum += parseFloat(inp.value) || 0;
+        const val = parseFloat(inp.value) || 0;
+        sum += val;
+        if (inp.dataset.cat) catPcts[inp.dataset.cat] = val / 100.0;
       });
+
+      // Compute per-category split sums and update effective % cells live
+      const splitSums = {};
+      document.querySelectorAll('.strat-split-pct-input').forEach(inp => {
+        const cat = inp.dataset.cat || '';
+        const val = parseFloat(inp.value) || 0;
+        splitSums[cat] = (splitSums[cat] || 0) + val;
+        const row = inp.closest('tr');
+        const effCell = row ? row.querySelector('.strat-eff-pct-cell') : null;
+        if (effCell) {
+          const catRatio = catPcts[cat] !== undefined ? catPcts[cat] : ((draft.categories && draft.categories[cat]) || 0);
+          effCell.innerHTML = `<b>${(catRatio * val).toFixed(1)}%</b>`;
+        }
+      });
+
+      const splitEl = document.getElementById('stratSplitTargetIndicators');
+      if (splitEl) {
+        const cats = Object.keys(draft.category_splits || {});
+        splitEl.innerHTML = cats.map(cat => {
+          const s = splitSums[cat] || 0;
+          const ok = Math.abs(s - 100.0) < 0.05;
+          return `<span class="pill ${ok ? 'pill-green' : 'pill-amber'}">${esc(cat)}: ${s.toFixed(1)}%</span>`;
+        }).join('');
+      }
     }
     const isBalanced = Math.abs(sum - 100.0) < 0.05;
     el.innerHTML = isBalanced
@@ -1482,7 +1717,7 @@
   }
 
   async function onQuickChangeManualAmount(holdingID, sym, val) {
-    const amount = parseFloat(String(val).replace(/,/g, '')) || 0;
+    const amount = parseFloat(String(val).replace(/[^0-9.-]/g, '')) || 0;
     const symbolsCfg = (appState && appState.symbols) ? appState.symbols : { symbols: {} };
     if (symbolsCfg.symbols && symbolsCfg.symbols[sym]) {
       symbolsCfg.symbols[sym].fixed_price = Math.abs(amount);
@@ -1766,6 +2001,12 @@
       accSel.value = h.account;
     }
 
+    const symInp = document.getElementById('modalEditPosSymbol');
+    if (symInp) symInp.value = h.symbol || '';
+
+    const manToggle = document.getElementById('modalEditPosManualToggle');
+    if (manToggle) manToggle.checked = isMan;
+
     // Manual fields vs Shares
     const manWrap = document.getElementById('modalEditPosManualFields');
     if (manWrap) manWrap.classList.toggle('hidden', !isMan);
@@ -1780,26 +2021,18 @@
         sharesInp.value = round4(h.shares);
       }
     }
-    if (isMan) {
-      const manName = document.getElementById('modalEditPosManualName');
-      if (manName) manName.value = symDef.name || h.symbol;
-      const manCurr = document.getElementById('modalEditPosManualCurrency');
-      if (manCurr) manCurr.value = symDef.currency || 'CAD';
-    }
+    const manName = document.getElementById('modalEditPosManualName');
+    if (manName) manName.value = symDef.name || h.symbol;
+    const manCurr = document.getElementById('modalEditPosManualCurrency');
+    if (manCurr) manCurr.value = symDef.currency || 'CAD';
 
-    // Populate Division Mapping dropdown
+    // Populate Division/Bucket dropdown
     const divSel = document.getElementById('modalEditPosDivision');
     if (divSel) {
-      const divNames = new Set();
-      ((currentEval && currentEval.divisions) || []).forEach(d => divNames.add(d.division_name));
-      ((appState && appState.divisions && appState.divisions.divisions) || []).forEach(d => divNames.add(d.name));
-      let opts = `<option value="">Use Symbol Default</option>`;
-      opts += `<option value="__none__">None (No Division)</option>`;
-      Array.from(divNames).forEach(dn => {
-        opts += `<option value="${esc(dn)}">${esc(tTerm(dn))}</option>`;
-      });
-      divSel.innerHTML = opts;
-      if (h.no_division) {
+      divSel.innerHTML = buildDivBucketOptionsHtml();
+      if (h.bucket) {
+        divSel.value = `bucket:${h.bucket}`;
+      } else if (h.no_division) {
         divSel.value = '__none__';
       } else if (h.division) {
         divSel.value = h.division;
@@ -1822,20 +2055,39 @@
     if (modal) modal.classList.add('hidden');
   }
 
+  function onToggleEditManualMode() {
+    const isMan = !!document.getElementById('modalEditPosManualToggle')?.checked;
+    const manWrap = document.getElementById('modalEditPosManualFields');
+    if (manWrap) manWrap.classList.toggle('hidden', !isMan);
+    const sharesLbl = document.getElementById('modalEditPosSharesLabel');
+    if (sharesLbl) sharesLbl.textContent = isMan ? 'Amount' : 'Shares';
+    const manName = document.getElementById('modalEditPosManualName');
+    const symVal = (document.getElementById('modalEditPosSymbol')?.value || '').trim();
+    if (isMan && manName && !manName.value.trim() && symVal) {
+      manName.value = symVal;
+    }
+  }
+
   async function submitEditPositionModal() {
     if (isGroupSelection(selectedPortfolio) || !currentPortfolioConfig || !_editingHoldingID) return;
     const holds = currentPortfolioConfig.holdings || [];
     const h = holds.find(x => x.id === _editingHoldingID);
     if (!h) return;
 
+    const oldSym = h.symbol;
     const newAcc = (document.getElementById('modalEditPosAccount')?.value || '').trim();
+    const newSym = (document.getElementById('modalEditPosSymbol')?.value || '').trim();
     const rawVal = parseFloat(String(document.getElementById('modalEditPosShares')?.value || '').replace(/,/g, ''));
     const divVal = document.getElementById('modalEditPosDivision')?.value || '';
     const noteVal = (document.getElementById('modalEditPosNote')?.value || '').trim();
-    const isMan = isManualSymbol(h.symbol);
+    const isMan = !!document.getElementById('modalEditPosManualToggle')?.checked;
 
     if (!newAcc) {
       alert('Please select an account.');
+      return;
+    }
+    if (!newSym) {
+      alert('Please enter a position name or symbol.');
       return;
     }
     if (isNaN(rawVal) || (isMan && rawVal === 0) || (!isMan && rawVal < 0)) {
@@ -1844,25 +2096,33 @@
     }
 
     if (isMan) {
-      const manName = (document.getElementById('modalEditPosManualName')?.value || '').trim() || h.symbol;
+      const manName = (document.getElementById('modalEditPosManualName')?.value || '').trim() || newSym;
       const manCurr = document.getElementById('modalEditPosManualCurrency')?.value || 'CAD';
       const symbolsCfg = (appState && appState.symbols) ? appState.symbols : { symbols: {} };
-      if (symbolsCfg.symbols && symbolsCfg.symbols[h.symbol]) {
-        symbolsCfg.symbols[h.symbol].name = manName;
-        symbolsCfg.symbols[h.symbol].currency = manCurr;
-        symbolsCfg.symbols[h.symbol].fixed_price = Math.abs(rawVal);
-        const symRes = await fetch('/api/symbols', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(symbolsCfg)
-        });
-        if (symRes.ok) appState = await symRes.json();
-      }
+      if (!symbolsCfg.symbols) symbolsCfg.symbols = {};
+      const existingSym = symbolsCfg.symbols[newSym] || symbolsCfg.symbols[oldSym] || {};
+      symbolsCfg.symbols[newSym] = {
+        asset_type: existingSym.asset_type || 'cash',
+        name: manName,
+        exchange: 'MANUAL',
+        currency: manCurr,
+        tax_structure: existingSym.tax_structure || 'domestic_canadian',
+        default_mer: existingSym.default_mer || 0,
+        fixed_price: Math.abs(rawVal),
+        default_divisions: existingSym.default_divisions || {}
+      };
+      const symRes = await fetch('/api/symbols', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(symbolsCfg)
+      });
+      if (symRes.ok) appState = await symRes.json();
       h.shares = rawVal < 0 ? -1 : 1;
     } else {
       h.shares = rawVal;
     }
 
+    h.symbol = newSym;
     if (h.account !== newAcc) {
       h.account = newAcc;
       const defAcc = (currentPortfolioConfig.accounts || []).find(a => a.name === newAcc);
@@ -1876,19 +2136,7 @@
       }
     }
 
-    if (divVal === '__none__') {
-      h.no_division = true;
-      delete h.division;
-      delete h.divisions;
-    } else if (divVal) {
-      delete h.no_division;
-      h.division = divVal;
-      delete h.divisions;
-    } else {
-      delete h.no_division;
-      delete h.division;
-      delete h.divisions;
-    }
+    applyDivBucketToHolding(h, divVal);
 
     if (noteVal) {
       h.note = noteVal;
@@ -1988,6 +2236,11 @@
     if (manName) manName.value = '';
     const manCurr = document.getElementById('modalAddPosManualCurrency');
     if (manCurr) manCurr.value = 'CAD';
+    const addDivBucket = document.getElementById('modalAddPosDivBucket');
+    if (addDivBucket) {
+      addDivBucket.innerHTML = buildDivBucketOptionsHtml();
+      addDivBucket.value = '';
+    }
     const sharesLbl = document.getElementById('modalAddPosSharesLabel');
     if (sharesLbl) sharesLbl.textContent = 'Shares / Principal';
 
@@ -2239,6 +2492,8 @@
     if (sharesLbl) sharesLbl.textContent = isManual ? 'Amount' : 'Shares / Principal';
     if (isManual) {
       onManualAssetInput();
+      const addDivBucket = document.getElementById('modalAddPosDivBucket');
+      if (addDivBucket && addDivBucket.value === '') addDivBucket.value = '__none__';
     } else {
       resetModalPreviewCard();
       updateModalEstimatedValue();
@@ -2248,7 +2503,7 @@
   function onManualAssetInput() {
     const isManual = !!document.getElementById('modalAddPosManualToggle')?.checked;
     if (!isManual) return;
-    const sym = (document.getElementById('modalAddPosSymbolInput')?.value || '').trim().toUpperCase() || 'MANUAL';
+    const sym = (document.getElementById('modalAddPosSymbolInput')?.value || '').trim() || 'Manual';
     const name = (document.getElementById('modalAddPosManualName')?.value || '').trim() || sym;
     const curr = document.getElementById('modalAddPosManualCurrency')?.value || 'CAD';
     modalSelectedSymbolData = {
@@ -2274,12 +2529,14 @@
     const accSel = document.getElementById('modalAddPosAccountSelect');
     const acc = accSel ? accSel.value.trim() : '';
     const symInp = document.getElementById('modalAddPosSymbolInput');
-    const sym = symInp ? symInp.value.trim().toUpperCase() : '';
+    const rawSym = symInp ? symInp.value.trim() : '';
+    const isManual = !!document.getElementById('modalAddPosManualToggle')?.checked;
+    const sym = isManual ? rawSym : rawSym.toUpperCase();
     const sharesInp = document.getElementById('modalAddPosSharesInput');
     const rawAmountOrShares = sharesInp ? parseFloat(String(sharesInp.value).replace(/,/g, '')) : 0;
     const noteInp = document.getElementById('modalAddPosNoteInput');
     const note = noteInp ? noteInp.value.trim() : '';
-    const isManual = !!document.getElementById('modalAddPosManualToggle')?.checked;
+    const divBucketVal = document.getElementById('modalAddPosDivBucket')?.value || '';
 
     if (!acc) {
       alert('Please select or specify an account.');
@@ -2326,9 +2583,10 @@
 
     if (!currentPortfolioConfig.holdings) currentPortfolioConfig.holdings = [];
 
-    const existing = currentPortfolioConfig.holdings.find(h => h.account === acc && h.symbol.toUpperCase() === sym);
+    const existing = currentPortfolioConfig.holdings.find(h => h.account === acc && h.symbol.toLowerCase() === sym.toLowerCase());
     if (existing) {
       existing.shares += shares;
+      if (divBucketVal) applyDivBucketToHolding(existing, divBucketVal);
       if (note) existing.note = (existing.note ? existing.note + '; ' : '') + note;
     } else {
       const defAcc = (currentPortfolioConfig.accounts || []).find(a => a.name === acc);
@@ -2340,6 +2598,7 @@
       if (defAcc && defAcc.account_type) {
         newHold.account_type = defAcc.account_type;
       }
+      if (divBucketVal) applyDivBucketToHolding(newHold, divBucketVal);
       if (note) newHold.note = note;
       currentPortfolioConfig.holdings.push(newHold);
     }
@@ -2497,13 +2756,42 @@
     });
 
     initDraggableAccountCards();
+    initDraggableDivisionCards();
+    initDraggableBucketCards();
+  }
+
+  function initDraggableBucketCards() {
+    initDraggableCardList({
+      containerId: 'bucketCardsContainer',
+      dataAttr: 'bucket',
+      orderScope: 'bucketOrder',
+      allowHoldingDrop: false
+    });
+  }
+
+  function initDraggableDivisionCards() {
+    initDraggableCardList({
+      containerId: 'divisionCardsContainer',
+      dataAttr: 'division',
+      orderScope: 'divisionOrder',
+      allowHoldingDrop: false
+    });
   }
 
   function initDraggableAccountCards() {
+    initDraggableCardList({
+      containerId: 'accountCardsContainer',
+      dataAttr: 'account',
+      orderScope: 'accountOrder',
+      allowHoldingDrop: true
+    });
+  }
+
+  function initDraggableCardList({ containerId, dataAttr, orderScope, allowHoldingDrop }) {
     if (isGroupSelection(selectedPortfolio)) return;
-    const container = document.getElementById('accountCardsContainer');
+    const container = document.getElementById(containerId);
     if (!container) return;
-    const cards = Array.from(container.querySelectorAll('.div-card[data-account]'));
+    const cards = Array.from(container.querySelectorAll(`.div-card[data-${dataAttr}]`));
     if (cards.length === 0) return;
 
     cards.forEach(card => {
@@ -2514,7 +2802,7 @@
         card.draggable = true;
 
         card.addEventListener('mousedown', (e) => {
-          // Only allow dragging account card from its header (not inner tables/inputs/buttons)
+          // Only allow dragging card from its header (not inner tables/inputs/buttons)
           if (!e.target.closest('.div-card-header') || e.target.closest('button, a, input, select')) {
             card.draggable = false;
           } else {
@@ -2533,12 +2821,13 @@
           }
           activeDraggedAccountCard = {
             card,
-            accountName: card.dataset.account || ''
+            containerId,
+            key: card.dataset[dataAttr] || ''
           };
           card.classList.add('dragging-card');
           if (e.dataTransfer) {
             e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', card.dataset.account || '');
+            e.dataTransfer.setData('text/plain', card.dataset[dataAttr] || '');
           }
         });
 
@@ -2550,7 +2839,7 @@
       }
 
       card.addEventListener('dragover', (e) => {
-        if (activeDraggedHolding && activeDraggedHolding.sourceAccount !== (card.dataset.account || '')) {
+        if (allowHoldingDrop && activeDraggedHolding && activeDraggedHolding.sourceAccount !== (card.dataset.account || '')) {
           e.preventDefault();
           if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
           container.querySelectorAll('.div-card').forEach(c => {
@@ -2559,7 +2848,7 @@
           card.classList.add('drag-target-card');
           return;
         }
-        if (activeDraggedAccountCard && activeDraggedAccountCard.card !== card) {
+        if (activeDraggedAccountCard && activeDraggedAccountCard.containerId === containerId && activeDraggedAccountCard.card !== card) {
           e.preventDefault();
           if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
           const rect = card.getBoundingClientRect();
@@ -2577,7 +2866,7 @@
 
       card.addEventListener('drop', async (e) => {
         // Drop holding onto an account card (e.g. empty account card or header)
-        if (activeDraggedHolding && activeDraggedHolding.sourceAccount !== (card.dataset.account || '')) {
+        if (allowHoldingDrop && activeDraggedHolding && activeDraggedHolding.sourceAccount !== (card.dataset.account || '')) {
           e.preventDefault();
           card.classList.remove('drag-target-card');
           const holdingId = activeDraggedHolding.holdingId;
@@ -2587,18 +2876,18 @@
           await moveHoldingToAccount(holdingId, targetAccount, targetAccountType, null, false);
           return;
         }
-        // Drop account card to reorder accounts
-        if (activeDraggedAccountCard && activeDraggedAccountCard.card !== card) {
+        // Drop card to reorder
+        if (activeDraggedAccountCard && activeDraggedAccountCard.containerId === containerId && activeDraggedAccountCard.card !== card) {
           e.preventDefault();
           const rect = card.getBoundingClientRect();
           const above = e.clientY < rect.top + rect.height / 2;
           card.classList.remove('drag-over-above', 'drag-over-below');
           container.insertBefore(activeDraggedAccountCard.card, above ? card : card.nextSibling);
           activeDraggedAccountCard = null;
-          const newOrder = Array.from(container.querySelectorAll('.div-card[data-account]'))
-            .map(c => c.dataset.account)
+          const newOrder = Array.from(container.querySelectorAll(`.div-card[data-${dataAttr}]`))
+            .map(c => c.dataset[dataAttr])
             .filter(Boolean);
-          await persistPortfolioOrder('accountOrder', newOrder);
+          await persistPortfolioOrder(orderScope, newOrder);
         }
       });
     });
@@ -2693,6 +2982,8 @@
       currentPortfolioConfig.classification_order = orderedList;
     } else if (scope === 'categoryOrder') {
       currentPortfolioConfig.category_order = orderedList;
+    } else if (scope === 'bucketOrder') {
+      currentPortfolioConfig.bucket_order = orderedList;
     } else {
       return;
     }
@@ -2713,6 +3004,279 @@
     }
     renderAll();
     showToast('Saved row order to portfolio YAML');
+  }
+
+  function renderBucketView() {
+    renderKpiGrids();
+    renderBucketSummaryTable();
+    renderBucketCards();
+  }
+
+  function renderBucketSummaryTable() {
+    const e = currentEval;
+    const el = document.getElementById('bucketSummaryTable');
+    if (!el || !e) return;
+    const buckets = e.bucket_summaries || [];
+    const isGrp = isGroupSelection(selectedPortfolio);
+    el.dataset.dragScope = 'bucketOrder';
+
+    if (buckets.length === 0) {
+      el.innerHTML = `<tbody><tr><td class="center text-muted" style="padding:18px;">No buckets defined yet.</td></tr></tbody>`;
+      return;
+    }
+
+    el.innerHTML = `
+      <thead>
+        <tr>
+          <th class="left">Bucket</th>
+          <th>Positions</th>
+          <th>Value (CAD)</th>
+          <th>Goal ($)</th>
+          <th>Funded %</th>
+          <th>Net Worth %</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${buckets.map(b => {
+          const hasGoal = b.target_amount > 0;
+          const fundedPct = hasGoal ? (b.market_value_cad / b.target_amount) : 0;
+          const pillCls = hasGoal ? (fundedPct >= 1 ? 'pill-green' : 'pill-neutral') : '';
+          return `
+            <tr data-row-key="${esc(b.bucket)}">
+              <td class="left">${dragHandleHtml(isGrp)}<b>${esc(b.bucket)}</b></td>
+              <td>${b.position_count}</td>
+              <td><b>${fmtMoney(b.market_value_cad)}</b></td>
+              <td class="text-muted">${hasGoal ? fmtMoney(b.target_amount) : '—'}</td>
+              <td>${hasGoal ? `<span class="pill ${pillCls}">${fmtPct(fundedPct, 0)}</span>` : '<span class="text-muted">—</span>'}</td>
+              <td>${fmtPct(b.net_worth_ratio, 1)}</td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    `;
+  }
+
+  function renderBucketCards() {
+    const e = currentEval;
+    const container = document.getElementById('bucketCardsContainer');
+    if (!container || !e) return;
+    const buckets = e.bucket_summaries || [];
+    if (buckets.length === 0) {
+      container.innerHTML = `<div class="card text-muted center" style="padding:24px;">No buckets defined yet. Click <b>+ New Bucket</b> to create one, or assign a bucket from Edit Position.</div>`;
+      updateCollapseAllButton('bucketCardsContainer');
+      return;
+    }
+
+    const isGrp = isGroupSelection(selectedPortfolio);
+    const portDenom = (e.has_excluded_accounts && e.net_worth_cad > 0) ? e.net_worth_cad : e.current_total_cad;
+
+    container.innerHTML = buckets.map((b, idx) => {
+      const color = DIVISION_COLORS[idx % DIVISION_COLORS.length];
+      const cardKey = `bucket:${b.bucket}`;
+      const isCollapsed = collapsedCards.has(cardKey);
+      const hasGoal = b.target_amount > 0;
+      const fundedPct = hasGoal ? (b.market_value_cad / b.target_amount) : 0;
+
+      const rowsHtml = (b.holdings || []).map(h => {
+        const portPct = portDenom > 0 ? (h.market_value_cad / portDenom) : 0;
+        const secLabelHtml = !isGrp
+          ? `<span class="sec-edit-link" onclick="openEditPositionModal(this.closest('tr').dataset.holdingId)" title="Edit ${esc(h.symbol)}">
+               ${formatSecurityNameHtml(h.symbol, h.symbol_name)}
+             </span>`
+          : formatSecurityNameHtml(h.symbol, h.symbol_name);
+
+        return `
+          <tr data-holding-id="${esc(h.holding_id)}">
+            <td class="left wrap-text"><b>${esc(h.account)}</b></td>
+            <td class="left wrap-text">${secLabelHtml}</td>
+            <td class="text-muted">${isManualSymbol(h.symbol) ? '—' : `${fmtPrice(h.share_price)} <span style="font-size:11px;">${esc(h.currency)}</span>`}</td>
+            <td>${renderEditableSharesCell(h.holding_id, h.shares, h.symbol, h.account, isGrp)}</td>
+            <td>${renderManualOrValueCell(h.holding_id, h.symbol, h.shares, h.share_price, h.market_value_cad, h.currency, isGrp)}</td>
+            <td>${fmtPct(portPct, 1)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const menuHtml = !isGrp ? `
+        <div class="card-menu-wrap">
+          <button type="button" class="btn btn-sm btn-ghost card-menu-btn"
+                  onclick="toggleAccountCardMenu(event, this)"
+                  title="Bucket actions" aria-haspopup="true" aria-expanded="false">⋯</button>
+          <div class="card-menu hidden" role="menu">
+            <button type="button" class="card-menu-item" role="menuitem"
+                    onclick="closeAllAccountMenus(); editBucketGoal(this.closest('.div-card').dataset.bucket)">
+              🎯 Set Goal Target ($)
+            </button>
+            <button type="button" class="card-menu-item" role="menuitem"
+                    onclick="closeAllAccountMenus(); renameBucket(this.closest('.div-card').dataset.bucket)">
+              ✎ Rename Bucket
+            </button>
+            <div class="card-menu-sep"></div>
+            <button type="button" class="card-menu-item danger" role="menuitem"
+                    onclick="closeAllAccountMenus(); deleteBucket(this.closest('.div-card').dataset.bucket)">
+              ✕ Delete Bucket
+            </button>
+          </div>
+        </div>
+      ` : '';
+
+      return `
+        <div class="div-card${isCollapsed ? ' collapsed' : ''}" data-card-key="${esc(cardKey)}" data-bucket="${esc(b.bucket)}">
+          <div class="div-card-header" onclick="onDivCardHeaderClick(event)">
+            <div class="div-title-group" style="display:flex;align-items:center;gap:6px;">
+              ${dragHandleHtml(isGrp)}
+              <span class="card-chevron">▾</span>
+              <span class="legend-dot" style="background:${color};width:12px;height:12px;"></span>
+              <span style="font-size:15px;font-weight:700;">${esc(b.bucket)}</span>
+              ${hasGoal ? `<span class="pill ${fundedPct >= 1 ? 'pill-green' : 'pill-neutral'}" style="font-size:11px;">Goal: ${fmtMoney(b.target_amount)} (${fmtPct(fundedPct, 0)})</span>` : ''}
+            </div>
+            <div class="div-metrics-group" style="display:flex;align-items:center;gap:12px;">
+              <div><span class="text-muted">Value:</span> <b>${fmtMoney(b.market_value_cad)}</b></div>
+              <div><span class="text-muted">Net Worth:</span> <b>${fmtPct(b.net_worth_ratio, 1)}</b></div>
+              ${menuHtml}
+            </div>
+          </div>
+          <div class="div-card-body" style="overflow-x:auto;">
+            <table class="table-clean" style="table-layout:fixed;width:100%;" data-sort-table="bucket_${esc(b.bucket)}">
+              <colgroup>
+                <col style="width:185px;">
+                <col>
+                <col style="width:110px;">
+                <col style="width:105px;">
+                <col style="width:125px;">
+                <col style="width:110px;">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th class="left wrap-text" style="width:185px;">${esc(t('th_account'))}</th>
+                  <th class="left">${esc(t('th_security'))}</th>
+                  <th>${esc(t('th_price'))}</th>
+                  <th>${esc(t('th_shares'))}</th>
+                  <th>${esc(t('th_value_cad'))}</th>
+                  <th>${esc(t('th_portfolio_pct'))}</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml || `<tr><td colspan="6" class="center text-muted" style="padding:20px;">No holdings assigned to ${esc(b.bucket)} yet. Assign holdings from Edit Position.</td></tr>`}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }).join('');
+    updateCollapseAllButton('bucketCardsContainer');
+  }
+
+  async function openNewBucketModal() {
+    if (isGroupSelection(selectedPortfolio) || !currentPortfolioConfig) return;
+    const name = await openPromptModal({
+      title: 'New Bucket',
+      label: 'Bucket Name (e.g. House, Travel, Auto, Emergency)',
+      placeholder: 'e.g. House',
+      confirmLabel: 'Create Bucket'
+    });
+    if (!name || !name.trim()) return;
+    const trimmed = name.trim();
+    if (!Array.isArray(currentPortfolioConfig.buckets)) currentPortfolioConfig.buckets = [];
+    if (currentPortfolioConfig.buckets.some(b => b.name.toLowerCase() === trimmed.toLowerCase())) {
+      showToast(`Bucket "${trimmed}" already exists`);
+      return;
+    }
+    currentPortfolioConfig.buckets.push({ name: trimmed });
+    if (Array.isArray(currentPortfolioConfig.bucket_order) && currentPortfolioConfig.bucket_order.length > 0) {
+      currentPortfolioConfig.bucket_order.push(trimmed);
+    }
+    await fetch('/api/portfolio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(currentPortfolioConfig)
+    });
+    await loadStateAndEvaluate();
+    showToast(`Created bucket "${trimmed}"`);
+  }
+
+  async function editBucketGoal(bucketName) {
+    if (isGroupSelection(selectedPortfolio) || !currentPortfolioConfig || !bucketName) return;
+    if (!Array.isArray(currentPortfolioConfig.buckets)) currentPortfolioConfig.buckets = [];
+    let bObj = currentPortfolioConfig.buckets.find(b => b.name === bucketName);
+    const currentGoal = bObj && bObj.target_amount > 0 ? String(Math.round(bObj.target_amount)) : '';
+    const next = await openPromptModal({
+      title: `Goal Target — ${bucketName}`,
+      label: 'Dollar Goal Target (CAD, leave blank or 0 to clear)',
+      initialValue: currentGoal,
+      confirmLabel: 'Save Goal'
+    });
+    if (next === null) return;
+    const val = parseFloat(String(next).replace(/[^0-9.]/g, '')) || 0;
+    if (!bObj) {
+      bObj = { name: bucketName };
+      currentPortfolioConfig.buckets.push(bObj);
+    }
+    if (val > 0) {
+      bObj.target_amount = val;
+    } else {
+      delete bObj.target_amount;
+    }
+    await fetch('/api/portfolio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(currentPortfolioConfig)
+    });
+    await loadStateAndEvaluate();
+    showToast(val > 0 ? `Set ${bucketName} goal to ${fmtMoney(val)}` : `Cleared goal for ${bucketName}`);
+  }
+
+  async function renameBucket(oldName) {
+    if (isGroupSelection(selectedPortfolio) || !currentPortfolioConfig || !oldName) return;
+    const next = await openPromptModal({
+      title: 'Rename Bucket',
+      label: 'Bucket Name',
+      initialValue: oldName,
+      confirmLabel: 'Rename'
+    });
+    if (!next || !next.trim() || next.trim() === oldName) return;
+    const newName = next.trim();
+    (currentPortfolioConfig.buckets || []).forEach(b => {
+      if (b.name === oldName) b.name = newName;
+    });
+    (currentPortfolioConfig.holdings || []).forEach(h => {
+      if (h.bucket === oldName) h.bucket = newName;
+    });
+    if (Array.isArray(currentPortfolioConfig.bucket_order)) {
+      currentPortfolioConfig.bucket_order = currentPortfolioConfig.bucket_order.map(x => x === oldName ? newName : x);
+    }
+    await fetch('/api/portfolio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(currentPortfolioConfig)
+    });
+    await loadStateAndEvaluate();
+    showToast(`Renamed bucket to "${newName}"`);
+  }
+
+  async function deleteBucket(bucketName) {
+    if (isGroupSelection(selectedPortfolio) || !currentPortfolioConfig || !bucketName) return;
+    const ok = await openConfirmModal({
+      title: 'Delete Bucket',
+      message: `Remove bucket "${bucketName}"? (Holdings remain in their accounts with no bucket.)`,
+      confirmLabel: 'Delete',
+      danger: true
+    });
+    if (!ok) return;
+    if (Array.isArray(currentPortfolioConfig.buckets)) {
+      currentPortfolioConfig.buckets = currentPortfolioConfig.buckets.filter(b => b.name !== bucketName);
+    }
+    (currentPortfolioConfig.holdings || []).forEach(h => {
+      if (h.bucket === bucketName) delete h.bucket;
+    });
+    if (Array.isArray(currentPortfolioConfig.bucket_order)) {
+      currentPortfolioConfig.bucket_order = currentPortfolioConfig.bucket_order.filter(x => x !== bucketName);
+    }
+    await fetch('/api/portfolio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(currentPortfolioConfig)
+    });
+    await loadStateAndEvaluate();
+    showToast(`Deleted bucket "${bucketName}"`);
   }
 
   const collapsedCards = new Set();

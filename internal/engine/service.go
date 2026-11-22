@@ -268,6 +268,9 @@ func (s *Service) GetPortfolioConfig(portfolioID string) (model.PortfolioConfig,
 				ac.Name = mp.Name + " · " + a.Name
 				combined.Accounts = append(combined.Accounts, ac)
 			}
+			for _, b := range mp.Buckets {
+				combined.Buckets = append(combined.Buckets, b)
+			}
 			for _, h := range mp.Holdings {
 				hc := h
 				hc.ID = mID + ":" + h.ID
@@ -548,6 +551,7 @@ func (s *Service) Evaluate(portfolioID string, filterAccount string) (model.Port
 			Symbol:                  h.Symbol,
 			SymbolName:              symDef.Name,
 			Note:                    h.Note,
+			Bucket:                  h.Bucket,
 			Currency:                currency,
 			SharePrice:              price,
 			ExchangeRate:            fxRate,
@@ -562,10 +566,14 @@ func (s *Service) Evaluate(portfolioID string, filterAccount string) (model.Port
 			EstimatedDeferredTaxCAD: grossHoldingValue * (1 - holdingFactor),
 		})
 
-		if excludedAccSet[h.Account] {
-			continue
+		isBucketHolding := strings.TrimSpace(h.Bucket) != ""
+		if isBucketHolding {
+			hasExcludedAccounts = true
 		}
 		for _, d := range divs {
+			if (excludedAccSet[h.Account] || isBucketHolding) && divTargetRatios[d.Name] > 0 {
+				continue
+			}
 			w, ok := divWeights[d.Name]
 			if !ok || w <= 0 {
 				continue
@@ -600,7 +608,8 @@ func (s *Service) Evaluate(portfolioID string, filterAccount string) (model.Port
 				EffectiveShares:         effShares,
 				MarketValueNative:       mvNative,
 				MarketValueCAD:          activeMV,
-				IsRebalanceTarget:       rebalSet[d.Name],
+				Bucket:                  h.Bucket,
+				IsRebalanceTarget:       rebalSet[d.Name] && !excludedAccSet[h.Account] && !isBucketHolding && divTargetRatios[d.Name] > 0,
 				ProposedSharesBuy:       propSliceShares,
 				ProposedValueCAD:        activePropVal,
 				AfterValueCAD:           afterValCAD,
@@ -632,13 +641,16 @@ func (s *Service) Evaluate(portfolioID string, filterAccount string) (model.Port
 	divDeferredTaxCAD := make(map[string]float64, len(divs))
 
 	for _, d := range divs {
+		isTrackingDiv := divTargetRatios[d.Name] <= 0
 		for _, sl := range slicesByDiv[d.Name] {
-			currentTotalCAD += sl.MarketValueCAD
-			grossCurrentTotalCAD += sl.GrossMarketValueCAD
-			afterTotalCAD += sl.AfterValueCAD
-			grossAfterTotalCAD += sl.GrossAfterValueCAD
-			proposedBuyTotalCAD += sl.ProposedValueCAD
-			grossProposedBuyTotalCAD += sl.GrossProposedValueCAD
+			if !isTrackingDiv && !excludedAccSet[sl.Account] && strings.TrimSpace(sl.Bucket) == "" {
+				currentTotalCAD += sl.MarketValueCAD
+				grossCurrentTotalCAD += sl.GrossMarketValueCAD
+				afterTotalCAD += sl.AfterValueCAD
+				grossAfterTotalCAD += sl.GrossAfterValueCAD
+				proposedBuyTotalCAD += sl.ProposedValueCAD
+				grossProposedBuyTotalCAD += sl.GrossProposedValueCAD
+			}
 
 			divCurrentCAD[d.Name] += sl.MarketValueCAD
 			divGrossCurrentCAD[d.Name] += sl.GrossMarketValueCAD
@@ -701,6 +713,12 @@ func (s *Service) Evaluate(portfolioID string, filterAccount string) (model.Port
 		ratioMiss := curRatio - tRatio
 		tValCAD := tRatio * targetTotalCAD
 		divAllocationBuyCAD := tValCAD - curValCAD
+		if tRatio <= 0 {
+			// 0% target divisions are tracking-only; don't generate sell-to-zero trades or drift warnings
+			ratioMiss = 0
+			tValCAD = curValCAD
+			divAllocationBuyCAD = 0
+		}
 
 		rows := slicesByDiv[d.Name]
 		rebalCount := 0
@@ -749,7 +767,7 @@ func (s *Service) Evaluate(portfolioID string, filterAccount string) (model.Port
 			totalWeightedMER += rows[i].MERContribution
 			totalWeightedMERTax += rows[i].MERTaxContribution
 
-			if rows[i].IsRebalanceTarget && rebalCount > 0 {
+			if tRatio > 0 && rows[i].IsRebalanceTarget && rebalCount > 0 {
 				rowAlloc := divAllocationBuyCAD / float64(rebalCount)
 				buyCAD := rowGrossTradeCAD(rowAlloc, rows[i].AfterTaxFactor)
 				rows[i].AllocationAmountToBuyCAD = rowAlloc
@@ -860,6 +878,11 @@ func (s *Service) Evaluate(portfolioID string, filterAccount string) (model.Port
 		p.ClassificationOrder,
 		func(c model.ClassificationSummary) string { return c.AccountType },
 	)
+	bucketSummaries := orderByPreference(
+		computeBucketSummaries(rawHoldings, p.Buckets, netWorthCAD),
+		p.BucketOrder,
+		func(b model.BucketSummary) string { return b.Bucket },
+	)
 	regVsUnreg := computeRegVsUnregSummaries(evaluatedDivisions, cats, catTargetRatios, divCfg.AccountTypes)
 
 	checksPassed := math.Abs(totalCalculatedBuyDiffCAD-amountToBuyCAD) < 1.0
@@ -903,6 +926,7 @@ func (s *Service) Evaluate(portfolioID string, filterAccount string) (model.Port
 		Divisions:                   evaluatedDivisions,
 		AccountSummaries:            accountSummaries,
 		ClassificationSummaries:     classificationSummaries,
+		BucketSummaries:             bucketSummaries,
 		RegVsUnregSummaries:         regVsUnreg,
 		RawHoldings:                 rawHoldings,
 		ChecksPassed:                checksPassed,
@@ -2189,6 +2213,53 @@ func filterHoldings(holdings []model.HoldingConfig, filter string, accTypes map[
 				out = append(out, h)
 			}
 		}
+	}
+	return out
+}
+
+func computeBucketSummaries(rawHoldings []model.HoldingSummary, definedBuckets []model.BucketDef, netWorthCAD float64) []model.BucketSummary {
+	byBucket := make(map[string]*model.BucketSummary)
+	var order []string
+
+	for _, b := range definedBuckets {
+		name := strings.TrimSpace(b.Name)
+		if name == "" {
+			continue
+		}
+		if existing, ok := byBucket[name]; ok {
+			if existing.TargetAmount <= 0 && b.TargetAmount > 0 {
+				existing.TargetAmount = b.TargetAmount
+			}
+			continue
+		}
+		byBucket[name] = &model.BucketSummary{
+			Bucket:       name,
+			TargetAmount: b.TargetAmount,
+		}
+		order = append(order, name)
+	}
+
+	for _, h := range rawHoldings {
+		name := strings.TrimSpace(h.Bucket)
+		if name == "" {
+			continue
+		}
+		sum, ok := byBucket[name]
+		if !ok {
+			sum = &model.BucketSummary{Bucket: name}
+			byBucket[name] = sum
+			order = append(order, name)
+		}
+		sum.PositionCount++
+		sum.Holdings = append(sum.Holdings, h)
+		sum.MarketValueCAD += h.MarketValueCAD
+	}
+
+	var out []model.BucketSummary
+	for _, name := range order {
+		s := byBucket[name]
+		s.NetWorthRatio = safeDiv(s.MarketValueCAD, netWorthCAD)
+		out = append(out, *s)
 	}
 	return out
 }
