@@ -21,12 +21,16 @@ func TestStaticAssetsServing(t *testing.T) {
 		expectedCode int
 	}{
 		{"/", http.StatusOK},
-		{"/styles.css", http.StatusOK},
-		{"/js/app.js", http.StatusOK},
-		{"/js/portfolio.js", http.StatusOK},
-		{"/js/securities.js", http.StatusOK},
-		{"/js/port_mgmt.js", http.StatusOK},
-		{"/js/config.js", http.StatusOK},
+	}
+	if entries, err := os.ReadDir("../../web/assets"); err == nil {
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				paths = append(paths, struct {
+					url          string
+					expectedCode int
+				}{"/assets/" + entry.Name(), http.StatusOK})
+			}
+		}
 	}
 
 	for _, tc := range paths {

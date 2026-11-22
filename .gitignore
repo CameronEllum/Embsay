@@ -22,3 +22,5 @@ config/config.yaml
 
 *.exe~
 experiments/
+frontend/node_modules/
+frontend/.vite/
