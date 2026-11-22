@@ -183,6 +183,15 @@ prices: {}
 amount_to_buy: 20
 after_tax_allocation: true
 rrsp_withdrawal_tax_rate: 0.30
+accounts:
+  - name: RRSP
+    account_type: rrsp
+    bucket: Retirement
+  - name: TFSA
+    account_type: tfsa
+    bucket: Retirement
+buckets:
+  - name: Retirement
 strategy:
   mode: flat
   divisions:

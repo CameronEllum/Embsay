@@ -384,39 +384,65 @@ body {
 }
 .portfolio-subnav {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   align-items: center;
-  background: var(--bg-subtle);
-  padding: 3px 6px;
-  border-radius: 8px;
+  background: transparent;
+  padding: 6px 0 2px 0;
   margin-left: 12px;
-  border: 1px solid var(--border);
+  border: none;
 }
 .port-subtab {
-  background: transparent;
+  background: var(--bg-subtle);
   color: var(--text-secondary);
-  border: none;
+  border: 1px solid var(--border);
   font-size: 12.5px;
   font-weight: 600;
   padding: 5px 12px;
-  border-radius: 6px;
+  border-radius: 7px;
   cursor: pointer;
   transition: all 0.15s;
+  white-space: nowrap;
 }
 .port-subtab:hover {
   color: var(--text);
   background: var(--bg-hover);
+  border-color: var(--border-strong);
 }
 .port-subtab.active {
   color: var(--primary);
-  background: var(--bg-surface);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  background: var(--primary-soft);
+  border-color: rgba(37, 99, 235, 0.3);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
 }
 .port-subtab.dragging-subtab {
   opacity: 0.45;
 }
 .port-subtab.drag-over-left {
   box-shadow: inset 2px 0 0 var(--primary);
+}
+.port-subtab-group {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  padding: 6px 6px 4px 6px;
+}
+.subnav-group-label {
+  position: absolute;
+  top: -6px;
+  left: 10px;
+  background: var(--bg-surface);
+  padding: 0 5px;
+  font-size: 9.5px;
+  line-height: 1;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  user-select: none;
 }
 .port-subtab.drag-over-right {
   box-shadow: inset -2px 0 0 var(--primary);

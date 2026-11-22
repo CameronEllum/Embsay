@@ -89,6 +89,18 @@ division_order:
   - America (US)
   - Canada
   - GICs/Bonds
+accounts:
+  - name: Margin
+    account_type: non_registered
+    bucket: Retirement
+  - name: TFSA
+    account_type: tfsa
+    bucket: Retirement
+  - name: RRSP
+    account_type: rrsp
+    bucket: Retirement
+buckets:
+  - name: Retirement
 strategy:
   mode: hierarchical
   categories:
@@ -204,7 +216,7 @@ holdings:
 	if err != nil {
 		t.Fatalf("GetPortfolioConfig: %v", err)
 	}
-	cfg2.Accounts = []model.AccountConfig{{Name: "Empty RESP", AccountType: "tfsa"}}
+	cfg2.Accounts = append(cfg2.Accounts, model.AccountConfig{Name: "Empty RESP", AccountType: "tfsa", Bucket: model.DefaultBucketRetirement})
 	cfg2.AccountOrder = []string{"Empty RESP", "TFSA", "RRSP", "Taxable"}
 	if err := svc2.UpdatePortfolio(cfg2); err != nil {
 		t.Fatalf("UpdatePortfolio with empty account: %v", err)
@@ -231,7 +243,12 @@ holdings:
 	if err != nil {
 		t.Fatalf("GetPortfolioConfig 3: %v", err)
 	}
-	cfg3.Accounts[0].ExcludeFromRebalancing = true
+	// Locate Kids RESP in cfg3.Accounts since Accounts includes Margin/TFSA/RRSP too
+	for i := range cfg3.Accounts {
+		if cfg3.Accounts[i].Name == "Kids RESP" {
+			cfg3.Accounts[i].ExcludeFromRebalancing = true
+		}
+	}
 	cfg3.Holdings = append(cfg3.Holdings, model.HoldingConfig{
 		Account: "Kids RESP",
 		Symbol:  "GIC_CAD",
@@ -277,7 +294,7 @@ holdings:
 	if eval5.NetWorthCAD != beforeBucketNW+5000 {
 		t.Fatalf("expected NetWorthCAD = %v, got %v", beforeBucketNW+5000, eval5.NetWorthCAD)
 	}
-	if len(eval5.BucketSummaries) != 1 || eval5.BucketSummaries[0].MarketValueCAD != 5000 {
+	if len(eval5.BucketSummaries) != 2 || !eval5.BucketSummaries[0].IsAllocationBucket || eval5.BucketSummaries[1].Bucket != "Emergency" || eval5.BucketSummaries[1].MarketValueCAD != 5000 {
 		t.Fatalf("unexpected BucketSummaries: %+v", eval5.BucketSummaries)
 	}
 }

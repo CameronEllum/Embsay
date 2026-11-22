@@ -2,6 +2,18 @@
 # XEQT is automatically decomposed into America (US) (~45%), Canada (~26%), Europe/Asia (EAFE) (~24%), and Emerging Markets (~5%).
 name: "Demo: Pure XEQT"
 amount_to_buy: 0.0
+accounts:
+  - name: TFSA
+    account_type: tfsa
+    bucket: Retirement
+  - name: RRSP
+    account_type: rrsp
+    bucket: Retirement
+  - name: Non-registered
+    account_type: non_registered
+    bucket: Retirement
+buckets:
+  - name: Retirement
 
 strategy:
   mode: hierarchical

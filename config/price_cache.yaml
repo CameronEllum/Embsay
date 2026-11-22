@@ -1,78 +1,78 @@
 fx_rates:
   USD_CAD:
-    rate: 1.4181
+    rate: 1.4325
     source: bank_of_canada
-    updated_at: 2026-11-10 22:13
+    updated_at: 2026-11-22 16:57
 prices:
   IEFA:
-    price: 97.16
+    price: 89.54
     currency: USD
-    updated_at: 2026-11-10 22:13
+    updated_at: 2026-11-22 16:57
   IEMG:
-    price: 73.77
+    price: 65.69
     currency: USD
-    updated_at: 2026-11-10 22:13
+    updated_at: 2026-11-22 16:57
   ITOT:
-    price: 163.84
+    price: 150.71
     currency: USD
-    updated_at: 2026-11-10 22:13
+    updated_at: 2026-11-22 16:57
   VAB:
-    price: 22.575
+    price: 22.55
     currency: CAD
-    updated_at: 2026-11-10 22:13
+    updated_at: 2026-11-22 16:57
   VBAL:
-    price: 39.47
+    price: 37.66
     currency: CAD
-    updated_at: 2026-11-10 22:13
+    updated_at: 2026-11-22 16:57
   VCIP:
-    price: 27.13
+    price: 26.66
     currency: CAD
-    updated_at: 2026-11-10 22:13
+    updated_at: 2026-11-22 16:57
   VEQT:
-    price: 61.61
+    price: 57
     currency: CAD
-    updated_at: 2026-11-10 22:13
+    updated_at: 2026-11-22 16:57
   VTI:
-    price: 369.55
+    price: 340.02
     currency: USD
-    updated_at: 2026-11-10 22:13
+    updated_at: 2026-11-22 16:57
   XAW:
-    price: 58.11
+    price: 53.77
     currency: CAD
-    updated_at: 2026-11-10 22:13
+    updated_at: 2026-11-22 16:57
   XEC:
-    price: 40.74
+    price: 36.88
     currency: CAD
-    updated_at: 2026-11-10 22:13
+    updated_at: 2026-11-22 16:57
   XEF:
-    price: 51.84
+    price: 48.3
     currency: CAD
-    updated_at: 2026-11-10 22:13
+    updated_at: 2026-11-22 16:57
   XEQT:
-    price: 45.28
+    price: 41.97
     currency: CAD
-    updated_at: 2026-11-10 22:13
+    updated_at: 2026-11-22 16:57
   XIC:
-    price: 57.76
+    price: 53.15
     currency: CAD
-    updated_at: 2026-11-10 22:13
+    updated_at: 2026-11-22 16:57
   XUU:
-    price: 78.04
+    price: 72.58
     currency: CAD
-    updated_at: 2026-11-10 22:13
+    updated_at: 2026-11-22 16:57
   ZAG:
-    price: 13.56
+    price: 13.54
     currency: CAD
-    updated_at: 2026-11-10 22:13
+    updated_at: 2026-11-22 16:57
   ZCN:
-    price: 48.42
+    price: 44.5
     currency: CAD
-    updated_at: 2026-11-10 22:13
+    updated_at: 2026-11-22 16:57
   ZDB:
-    price: 15.045
+    price: 15.03
     currency: CAD
-    updated_at: 2026-11-10 22:13
+    updated_at: 2026-11-22 16:57
   ZEQT:
-    price: 23.23
+    price: 21.49
     currency: CAD
-    updated_at: 2026-11-10 22:13
+    updated_at: 2026-11-22 16:57

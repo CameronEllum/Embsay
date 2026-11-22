@@ -6,8 +6,9 @@
   import SummaryTab from './components/SummaryTab.svelte';
   import DivisionTab from './components/DivisionTab.svelte';
   import AccountTab from './components/AccountTab.svelte';
-  import ClassificationTab from './components/ClassificationTab.svelte';
   import BucketTab from './components/BucketTab.svelte';
+  import TransactionsTab from './components/TransactionsTab.svelte';
+  import AcbTab from './components/AcbTab.svelte';
   import StrategyTab from './components/StrategyTab.svelte';
   import SecuritiesTab from './components/SecuritiesTab.svelte';
   import PortMgmtTab from './components/PortMgmtTab.svelte';
@@ -44,8 +45,9 @@
   <SummaryTab />
   <DivisionTab />
   <AccountTab />
-  <ClassificationTab />
   <BucketTab />
+  <TransactionsTab />
+  <AcbTab />
   <StrategyTab />
   <SecuritiesTab />
   <PortMgmtTab />

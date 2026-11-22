@@ -269,7 +269,21 @@ func (s *Service) GetPortfolioConfig(portfolioID string) (model.PortfolioConfig,
 				combined.Accounts = append(combined.Accounts, ac)
 			}
 			for _, b := range mp.Buckets {
-				combined.Buckets = append(combined.Buckets, b)
+				name := strings.TrimSpace(b.Name)
+				if name == "" {
+					continue
+				}
+				found := false
+				for i := range combined.Buckets {
+					if strings.EqualFold(strings.TrimSpace(combined.Buckets[i].Name), name) {
+						combined.Buckets[i].TargetAmount += b.TargetAmount
+						found = true
+						break
+					}
+				}
+				if !found {
+					combined.Buckets = append(combined.Buckets, b)
+				}
 			}
 			for _, h := range mp.Holdings {
 				hc := h
@@ -457,6 +471,7 @@ func (s *Service) Evaluate(portfolioID string, filterAccount string) (model.Port
 			hasExcludedAccounts = true
 		}
 	}
+	accountBuckets := resolveAccountBuckets(p.Accounts)
 
 	// Build raw holdings summary and slice each holding across its divisions
 	slicesByDiv := make(map[string][]model.EvaluatedSlice, len(divs))
@@ -468,6 +483,11 @@ func (s *Service) Evaluate(portfolioID string, filterAccount string) (model.Port
 	}
 
 	for _, h := range filteredHoldings {
+		effBucket, ownBucket, bucketInherited := resolveHoldingBucket(h, accountBuckets)
+		isAllocated := isRetirementBucket(effBucket) && !excludedAccSet[h.Account] && !h.NoDivision
+		if !isAllocated {
+			hasExcludedAccounts = true
+		}
 		symDef, hasSym := symCfg.Symbols[h.Symbol]
 		if !hasSym {
 			symDef = model.SymbolDef{
@@ -551,7 +571,9 @@ func (s *Service) Evaluate(portfolioID string, filterAccount string) (model.Port
 			Symbol:                  h.Symbol,
 			SymbolName:              symDef.Name,
 			Note:                    h.Note,
-			Bucket:                  h.Bucket,
+			Bucket:                  effBucket,
+			OwnBucket:               ownBucket,
+			BucketInherited:         bucketInherited,
 			Currency:                currency,
 			SharePrice:              price,
 			ExchangeRate:            fxRate,
@@ -566,12 +588,11 @@ func (s *Service) Evaluate(portfolioID string, filterAccount string) (model.Port
 			EstimatedDeferredTaxCAD: grossHoldingValue * (1 - holdingFactor),
 		})
 
-		isBucketHolding := strings.TrimSpace(h.Bucket) != ""
-		if isBucketHolding {
-			hasExcludedAccounts = true
+		if !isRetirementBucket(effBucket) {
+			continue
 		}
 		for _, d := range divs {
-			if (excludedAccSet[h.Account] || isBucketHolding) && divTargetRatios[d.Name] > 0 {
+			if !isAllocated && divTargetRatios[d.Name] > 0 {
 				continue
 			}
 			w, ok := divWeights[d.Name]
@@ -608,8 +629,8 @@ func (s *Service) Evaluate(portfolioID string, filterAccount string) (model.Port
 				EffectiveShares:         effShares,
 				MarketValueNative:       mvNative,
 				MarketValueCAD:          activeMV,
-				Bucket:                  h.Bucket,
-				IsRebalanceTarget:       rebalSet[d.Name] && !excludedAccSet[h.Account] && !isBucketHolding && divTargetRatios[d.Name] > 0,
+				Bucket:                  effBucket,
+				IsRebalanceTarget:       rebalSet[d.Name] && isAllocated && divTargetRatios[d.Name] > 0,
 				ProposedSharesBuy:       propSliceShares,
 				ProposedValueCAD:        activePropVal,
 				AfterValueCAD:           afterValCAD,
@@ -643,7 +664,7 @@ func (s *Service) Evaluate(portfolioID string, filterAccount string) (model.Port
 	for _, d := range divs {
 		isTrackingDiv := divTargetRatios[d.Name] <= 0
 		for _, sl := range slicesByDiv[d.Name] {
-			if !isTrackingDiv && !excludedAccSet[sl.Account] && strings.TrimSpace(sl.Bucket) == "" {
+			if !isTrackingDiv && !excludedAccSet[sl.Account] && isRetirementBucket(sl.Bucket) {
 				currentTotalCAD += sl.MarketValueCAD
 				grossCurrentTotalCAD += sl.GrossMarketValueCAD
 				afterTotalCAD += sl.AfterValueCAD
@@ -869,7 +890,7 @@ func (s *Service) Evaluate(portfolioID string, filterAccount string) (model.Port
 		accTotalDenominator = netWorthCAD
 	}
 	accountSummaries := orderByPreference(
-		computeAccountSummaries(rawHoldings, p.Accounts, excludedAccSet, divCfg.AccountTypes, accTotalDenominator),
+		computeAccountSummaries(rawHoldings, p.Accounts, excludedAccSet, accountBuckets, divCfg.AccountTypes, accTotalDenominator),
 		p.AccountOrder,
 		func(a model.AccountSummary) string { return a.Account },
 	)
@@ -921,7 +942,7 @@ func (s *Service) Evaluate(portfolioID string, filterAccount string) (model.Port
 		GrossNetWorthCAD:            grossNetWorthCAD,
 		HasExcludedAccounts:         hasExcludedAccounts,
 		RebalanceWarnings:           rebalanceWarnings,
-		DataWarnings:                checkMissingETFData(filteredHoldings, symCfg, cacheCfg, dsCfg),
+		DataWarnings:                checkMissingETFData(filteredHoldings, accountBuckets, excludedAccSet, symCfg, cacheCfg, dsCfg),
 		Categories:                  evaluatedCategories,
 		Divisions:                   evaluatedDivisions,
 		AccountSummaries:            accountSummaries,
@@ -1062,6 +1083,7 @@ func (s *Service) CreatePortfolio(name string, copyFromID string, targetDir stri
 		Name:                  strings.TrimSpace(name),
 		AfterTaxAllocation:    afterTaxAllocation,
 		RRSPWithdrawalTaxRate: rrspRate,
+		Buckets:               []model.BucketDef{{Name: model.DefaultBucketRetirement}},
 		Strategy:              strat,
 		Holdings:              []model.HoldingConfig{},
 		SourceDir:             cleanTarget,
@@ -1205,6 +1227,7 @@ func (s *Service) RenameAccount(portfolioID string, oldName string, newName stri
 	divCfg := s.store.Divisions()
 	inferred := store.InferAccountType(newName, divCfg.AccountTypes)
 	updated := 0
+	accUpdated := false
 	for i := range p.Holdings {
 		if p.Holdings[i].Account == oldName {
 			p.Holdings[i].Account = newName
@@ -1220,17 +1243,32 @@ func (s *Service) RenameAccount(portfolioID string, oldName string, newName stri
 			if inferred != "non_registered" || p.Accounts[i].AccountType == "" {
 				p.Accounts[i].AccountType = inferred
 			}
-			updated++
+			accUpdated = true
 		}
 	}
 	for i := range p.AccountOrder {
 		if p.AccountOrder[i] == oldName {
 			p.AccountOrder[i] = newName
+			accUpdated = true
 		}
 	}
-	if updated > 0 {
+	if updated > 0 || accUpdated {
 		if err := s.store.SavePortfolio(p); err != nil {
 			return 0, err
+		}
+	}
+	if strings.TrimSpace(p.TransactionsFile) != "" {
+		if txs, _, err := s.store.LoadTransactions(portfolioID); err == nil && len(txs) > 0 {
+			txChanged := false
+			for i := range txs {
+				if txs[i].Account == oldName {
+					txs[i].Account = newName
+					txChanged = true
+				}
+			}
+			if txChanged {
+				_, _ = s.store.SaveTransactions(portfolioID, txs)
+			}
 		}
 	}
 	return updated, nil
@@ -1476,9 +1514,9 @@ func (s *Service) LookupSymbol(rawSymbol string, preferredExchange string) (data
 	return datasource.SymbolLookupResult{}, err
 }
 
-// checkMissingETFData inspects portfolio holdings and returns warnings for any symbol whose
+// checkMissingETFData inspects Retirement allocation holdings and returns warnings for any symbol whose
 // ETF definition, live price, or composite division breakdown has not yet been downloaded.
-func checkMissingETFData(holdings []model.HoldingConfig, symCfg model.SymbolsConfig, cacheCfg model.CacheConfig, dsCfg model.DataSourcesConfig) []string {
+func checkMissingETFData(holdings []model.HoldingConfig, accountBuckets map[string]string, excludedAccSet map[string]bool, symCfg model.SymbolsConfig, cacheCfg model.CacheConfig, dsCfg model.DataSourcesConfig) []string {
 	var missingDef []string
 	var missingPrice []string
 	var missingRatio []string
@@ -1486,7 +1524,8 @@ func checkMissingETFData(holdings []model.HoldingConfig, symCfg model.SymbolsCon
 	seen := make(map[string]bool)
 
 	for _, h := range holdings {
-		if strings.TrimSpace(h.Bucket) != "" {
+		effBucket, _, _ := resolveHoldingBucket(h, accountBuckets)
+		if !isRetirementBucket(effBucket) || excludedAccSet[h.Account] || h.NoDivision {
 			continue
 		}
 		sym := strings.TrimSpace(h.Symbol)
@@ -2223,38 +2262,87 @@ func filterHoldings(holdings []model.HoldingConfig, filter string, accTypes map[
 	return out
 }
 
+func isRetirementBucket(name string) bool {
+	return strings.EqualFold(strings.TrimSpace(name), model.DefaultBucketRetirement)
+}
+
+func isOtherBucket(name string) bool {
+	return strings.EqualFold(strings.TrimSpace(name), model.DefaultBucketOther)
+}
+
+func resolveAccountBuckets(accounts []model.AccountConfig) map[string]string {
+	out := make(map[string]string, len(accounts))
+	for _, a := range accounts {
+		name := strings.TrimSpace(a.Name)
+		if name == "" {
+			continue
+		}
+		if b := strings.TrimSpace(a.Bucket); b != "" {
+			out[name] = b
+		}
+	}
+	return out
+}
+
+func resolveHoldingBucket(h model.HoldingConfig, accountBuckets map[string]string) (effective string, own string, inherited bool) {
+	if ownBucket := strings.TrimSpace(h.Bucket); ownBucket != "" {
+		return ownBucket, ownBucket, false
+	}
+	if accBucket := strings.TrimSpace(accountBuckets[h.Account]); accBucket != "" {
+		return accBucket, "", true
+	}
+	return model.DefaultBucketOther, "", true
+}
+
 func computeBucketSummaries(rawHoldings []model.HoldingSummary, definedBuckets []model.BucketDef, netWorthCAD float64) []model.BucketSummary {
-	byBucket := make(map[string]*model.BucketSummary)
+	byKey := make(map[string]*model.BucketSummary)
 	var order []string
+
+	// Always include the built-in Retirement allocation bucket first (may be reordered via BucketOrder).
+	retKey := strings.ToLower(model.DefaultBucketRetirement)
+	byKey[retKey] = &model.BucketSummary{
+		Bucket:             model.DefaultBucketRetirement,
+		IsAllocationBucket: true,
+		IsDefault:          true,
+	}
+	order = append(order, retKey)
 
 	for _, b := range definedBuckets {
 		name := strings.TrimSpace(b.Name)
 		if name == "" {
 			continue
 		}
-		if existing, ok := byBucket[name]; ok {
+		key := strings.ToLower(name)
+		if existing, ok := byKey[key]; ok {
 			if existing.TargetAmount <= 0 && b.TargetAmount > 0 {
 				existing.TargetAmount = b.TargetAmount
 			}
 			continue
 		}
-		byBucket[name] = &model.BucketSummary{
-			Bucket:       name,
-			TargetAmount: b.TargetAmount,
+		byKey[key] = &model.BucketSummary{
+			Bucket:             name,
+			IsAllocationBucket: isRetirementBucket(name),
+			IsDefault:          isRetirementBucket(name) || isOtherBucket(name),
+			TargetAmount:       b.TargetAmount,
 		}
-		order = append(order, name)
+		order = append(order, key)
 	}
 
 	for _, h := range rawHoldings {
 		name := strings.TrimSpace(h.Bucket)
 		if name == "" {
-			continue
+			name = model.DefaultBucketOther
 		}
-		sum, ok := byBucket[name]
+		key := strings.ToLower(name)
+		sum, ok := byKey[key]
 		if !ok {
-			sum = &model.BucketSummary{Bucket: name}
-			byBucket[name] = sum
-			order = append(order, name)
+			sum = &model.BucketSummary{
+				Bucket:             name,
+				IsAllocationBucket: isRetirementBucket(name),
+				IsDefault:          isRetirementBucket(name) || isOtherBucket(name),
+			}
+			byKey[key] = sum
+			order = append(order, key)
 		}
 		sum.PositionCount++
 		sum.Holdings = append(sum.Holdings, h)
@@ -2262,15 +2350,15 @@ func computeBucketSummaries(rawHoldings []model.HoldingSummary, definedBuckets [
 	}
 
 	var out []model.BucketSummary
-	for _, name := range order {
-		s := byBucket[name]
+	for _, key := range order {
+		s := byKey[key]
 		s.NetWorthRatio = safeDiv(s.MarketValueCAD, netWorthCAD)
 		out = append(out, *s)
 	}
 	return out
 }
 
-func computeAccountSummaries(rawHoldings []model.HoldingSummary, definedAccounts []model.AccountConfig, excludedAccSet map[string]bool, accTypes map[string]model.AccountTypeDef, totalCAD float64) []model.AccountSummary {
+func computeAccountSummaries(rawHoldings []model.HoldingSummary, definedAccounts []model.AccountConfig, excludedAccSet map[string]bool, accountBuckets map[string]string, accTypes map[string]model.AccountTypeDef, totalCAD float64) []model.AccountSummary {
 	byAcc := make(map[string]*model.AccountSummary)
 	var order []string
 	for _, h := range rawHoldings {
@@ -2283,6 +2371,7 @@ func computeAccountSummaries(rawHoldings []model.HoldingSummary, definedAccounts
 			sum = &model.AccountSummary{
 				Account:                 h.Account,
 				AccountType:             h.AccountType,
+				Bucket:                  accountBuckets[h.Account],
 				Registered:              reg,
 				ExcludedFromRebalancing: excludedAccSet[h.Account],
 			}
@@ -2315,6 +2404,7 @@ func computeAccountSummaries(rawHoldings []model.HoldingSummary, definedAccounts
 		byAcc[name] = &model.AccountSummary{
 			Account:                 name,
 			AccountType:             accType,
+			Bucket:                  strings.TrimSpace(a.Bucket),
 			Registered:              reg,
 			ExcludedFromRebalancing: excludedAccSet[name] || a.ExcludeFromRebalancing,
 		}

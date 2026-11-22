@@ -2,6 +2,15 @@
 # Balanced two-ticket Couch Potato portfolio decomposing XEQT into underlying regional equity divisions.
 name: "Demo: 30% VAB / 70% XEQT"
 amount_to_buy: 15000.0
+accounts:
+  - name: RRSP
+    account_type: rrsp
+    bucket: Retirement
+  - name: TFSA
+    account_type: tfsa
+    bucket: Retirement
+buckets:
+  - name: Retirement
 
 strategy:
   mode: hierarchical

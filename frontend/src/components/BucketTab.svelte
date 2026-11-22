@@ -2,7 +2,7 @@
   <div class="section-header">
     <div>
       <h2 class="section-title">Holdings by Bucket</h2>
-      <div class="text-muted" style="font-size:12.5px;">Earmark holdings toward savings or financial buckets with optional dollar targets, independent of rebalancing.</div>
+      <div class="text-muted" style="font-size:12.5px;">Accounts and positions inherit buckets (last bucket wins; unassigned positions fall back to Other). Only the Retirement bucket participates in strategy allocations.</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center;">
       <button class="btn btn-sm" id="btnCollapseBucket" data-collapse-target="bucketCardsContainer" onclick={() => window.toggleAllCardsIn('bucketCardsContainer')}>Collapse All</button>

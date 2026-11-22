@@ -77,6 +77,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/portfolio/create", s.handleCreatePortfolio)
 	s.mux.HandleFunc("/api/holding/quick-update", s.handleQuickUpdateHolding)
 	s.mux.HandleFunc("/api/account/rename", s.handleRenameAccount)
+	s.mux.HandleFunc("/api/transactions", s.handleTransactions)
+	s.mux.HandleFunc("/api/acb", s.handleACB)
 	s.mux.HandleFunc("/api/portfolio/amount-to-buy", s.handleSetAmountToBuy)
 	s.mux.HandleFunc("/api/portfolio/apply-trades", s.handleApplyTrades)
 	s.mux.HandleFunc("/api/portfolio/commit-trades", s.handleCommitTrades)
@@ -666,6 +668,96 @@ func (s *Server) StartIdleTimeoutMonitor(stopCh <-chan struct{}) {
 			}
 		}
 	}()
+}
+
+func (s *Server) handleTransactions(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		portID := strings.TrimSpace(r.URL.Query().Get("portfolio"))
+		if portID == "" {
+			writeError(w, http.StatusBadRequest, fmt.Errorf("portfolio query parameter required"))
+			return
+		}
+		txs, txFile, err := s.svc.GetTransactions(portID)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"portfolio_id":      portID,
+			"transactions_file": txFile,
+			"transactions":      txs,
+		})
+	case http.MethodPost:
+		var req struct {
+			PortfolioID   string            `json:"portfolio_id"`
+			Transaction   model.Transaction `json:"transaction"`
+			UpdateHolding bool              `json:"update_holding"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		tx, eval, txFile, err := s.svc.AddTransaction(req.PortfolioID, req.Transaction, req.UpdateHolding)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"transaction":       tx,
+			"evaluation":        eval,
+			"transactions_file": txFile,
+		})
+	case http.MethodPut:
+		var req struct {
+			PortfolioID string            `json:"portfolio_id"`
+			Transaction model.Transaction `json:"transaction"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		tx, err := s.svc.UpdateTransaction(req.PortfolioID, req.Transaction)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"transaction": tx,
+		})
+	case http.MethodDelete:
+		portID := strings.TrimSpace(r.URL.Query().Get("portfolio"))
+		txID := strings.TrimSpace(r.URL.Query().Get("id"))
+		if portID == "" || txID == "" {
+			writeError(w, http.StatusBadRequest, fmt.Errorf("portfolio and id query parameters required"))
+			return
+		}
+		if err := s.svc.DeleteTransaction(portID, txID); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) handleACB(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	portID := strings.TrimSpace(r.URL.Query().Get("portfolio"))
+	if portID == "" {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("portfolio query parameter required"))
+		return
+	}
+	rep, err := s.svc.ComputeACB(portID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, rep)
 }
 
 func writeJSON(w http.ResponseWriter, status int, data interface{}) {

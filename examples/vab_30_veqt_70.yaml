@@ -2,6 +2,15 @@
 # Classic two-fund Couch Potato portfolio for an investor who doesn't care about regional allocation (trusts VEQT).
 name: "Demo: 30% VAB / 70% VEQT"
 amount_to_buy: 0.0
+accounts:
+  - name: RRSP
+    account_type: rrsp
+    bucket: Retirement
+  - name: TFSA
+    account_type: tfsa
+    bucket: Retirement
+buckets:
+  - name: Retirement
 
 strategy:
   mode: flat

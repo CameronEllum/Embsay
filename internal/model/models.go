@@ -1,5 +1,10 @@
 package model
 
+const (
+	DefaultBucketRetirement = "Retirement"
+	DefaultBucketOther      = "Other"
+)
+
 // --- 0. config.yaml (Application Settings) ---
 
 type AppConfig struct {
@@ -173,6 +178,7 @@ type PortfolioConfig struct {
 	BucketOrder           []string        `yaml:"bucket_order,omitempty" json:"bucket_order,omitempty"`
 	Accounts              []AccountConfig `yaml:"accounts,omitempty" json:"accounts,omitempty"`
 	Buckets               []BucketDef     `yaml:"buckets,omitempty" json:"buckets,omitempty"`
+	TransactionsFile      string          `yaml:"transactions_file,omitempty" json:"transactions_file,omitempty"`
 	Strategy              StrategyConfig  `yaml:"strategy" json:"strategy"`
 	Holdings              []HoldingConfig `yaml:"holdings" json:"holdings"`
 }
@@ -185,6 +191,7 @@ type BucketDef struct {
 type AccountConfig struct {
 	Name                   string `yaml:"name" json:"name"`
 	AccountType            string `yaml:"account_type,omitempty" json:"account_type,omitempty"`
+	Bucket                 string `yaml:"bucket,omitempty" json:"bucket,omitempty"`
 	ExcludeFromRebalancing bool   `yaml:"exclude_from_rebalancing,omitempty" json:"exclude_from_rebalancing,omitempty"`
 }
 
@@ -344,6 +351,7 @@ type EvaluatedSlice struct {
 type AccountSummary struct {
 	Account                 string           `json:"account"`
 	AccountType             string           `json:"account_type"`
+	Bucket                  string           `json:"bucket,omitempty"`
 	Registered              bool             `json:"registered"`
 	ExcludedFromRebalancing bool             `json:"excluded_from_rebalancing,omitempty"`
 	MarketValueCAD          float64          `json:"market_value_cad"`
@@ -377,12 +385,14 @@ type RegVsUnregSummary struct {
 }
 
 type BucketSummary struct {
-	Bucket         string           `json:"bucket"`
-	TargetAmount   float64          `json:"target_amount,omitempty"`
-	MarketValueCAD float64          `json:"market_value_cad"`
-	NetWorthRatio  float64          `json:"net_worth_ratio"`
-	PositionCount  int              `json:"position_count"`
-	Holdings       []HoldingSummary `json:"holdings"`
+	Bucket             string           `json:"bucket"`
+	IsAllocationBucket bool             `json:"is_allocation_bucket,omitempty"`
+	IsDefault          bool             `json:"is_default,omitempty"`
+	TargetAmount       float64          `json:"target_amount,omitempty"`
+	MarketValueCAD     float64          `json:"market_value_cad"`
+	NetWorthRatio      float64          `json:"net_worth_ratio"`
+	PositionCount      int              `json:"position_count"`
+	Holdings           []HoldingSummary `json:"holdings"`
 }
 
 type HoldingSummary struct {
@@ -393,6 +403,8 @@ type HoldingSummary struct {
 	SymbolName         string             `json:"symbol_name"`
 	Note               string             `json:"note,omitempty"`
 	Bucket             string             `json:"bucket,omitempty"`
+	OwnBucket          string             `json:"own_bucket,omitempty"`
+	BucketInherited    bool               `json:"bucket_inherited,omitempty"`
 	Currency           string             `json:"currency"`
 	SharePrice         float64            `json:"share_price"`
 	ExchangeRate       float64            `json:"exchange_rate"`
@@ -406,4 +418,65 @@ type HoldingSummary struct {
 	AllocationValueCAD      float64 `json:"allocation_value_cad"`
 	AfterTaxValueCAD        float64 `json:"after_tax_value_cad"`
 	EstimatedDeferredTaxCAD float64 `json:"estimated_deferred_tax_cad"`
+}
+
+// --- 6. Transactions & CRA ACB Ledger ---
+
+type Transaction struct {
+	ID       string  `json:"id"`
+	Date     string  `json:"date"`     // YYYY-MM-DD
+	Account  string  `json:"account"`
+	Type     string  `json:"type"`     // buy, sell, dividend, roc, reinvested_cap_gain, split, deposit, withdrawal, fee, interest, transfer
+	Symbol   string  `json:"symbol"`
+	Shares   float64 `json:"shares"`
+	Price    float64 `json:"price"`
+	Amount   float64 `json:"amount"`
+	Currency string  `json:"currency"` // CAD or USD
+	FXRate   float64 `json:"fx_rate"`
+	Fee      float64 `json:"fee"`
+	Note     string  `json:"note,omitempty"`
+}
+
+type ACBEvent struct {
+	TransactionID         string  `json:"transaction_id"`
+	Date                  string  `json:"date"`
+	Account               string  `json:"account"`
+	Type                  string  `json:"type"`
+	Shares                float64 `json:"shares"`
+	AmountCAD             float64 `json:"amount_cad"`
+	FeeCAD                float64 `json:"fee_cad"`
+	RunningShares         float64 `json:"running_shares"`
+	RunningACBCAD         float64 `json:"running_acb_cad"`
+	ACBPerShareCAD        float64 `json:"acb_per_share_cad"`
+	RealizedGainCAD       float64 `json:"realized_gain_cad"`
+	SuperficialLossWarning bool   `json:"superficial_loss_warning,omitempty"`
+	Note                  string  `json:"note,omitempty"`
+}
+
+type ACBSymbolSummary struct {
+	Symbol                string             `json:"symbol"`
+	SymbolName            string             `json:"symbol_name"`
+	Accounts              []string           `json:"accounts"`
+	TotalShares           float64            `json:"total_shares"`
+	TotalACBCAD           float64            `json:"total_acb_cad"`
+	ACBPerShareCAD        float64            `json:"acb_per_share_cad"`
+	CurrentPriceCAD       float64            `json:"current_price_cad"`
+	MarketValueCAD        float64            `json:"market_value_cad"`
+	UnrealizedGainCAD     float64            `json:"unrealized_gain_cad"`
+	UnrealizedGainPct     float64            `json:"unrealized_gain_pct"`
+	RealizedGainTotalCAD  float64            `json:"realized_gain_total_cad"`
+	RealizedGainByYear    map[string]float64 `json:"realized_gain_by_year"`
+	HasSuperficialWarning bool               `json:"has_superficial_warning,omitempty"`
+	Events                []ACBEvent         `json:"events"`
+}
+
+type ACBReport struct {
+	PortfolioID            string             `json:"portfolio_id"`
+	TransactionsFile       string             `json:"transactions_file"`
+	Symbols                []ACBSymbolSummary `json:"symbols"`
+	TotalACBCAD            float64            `json:"total_acb_cad"`
+	TotalMarketValueCAD    float64            `json:"total_market_value_cad"`
+	TotalUnrealizedGainCAD float64            `json:"total_unrealized_gain_cad"`
+	RealizedGainByYear     map[string]float64 `json:"realized_gain_by_year"`
+	TaxYears               []string           `json:"tax_years"`
 }

@@ -43,15 +43,15 @@
       nav_securities_tax: 'ETFs & Tax',
       nav_config: 'Config',
       nav_overview: 'Allocation Overview',
-      nav_by_division: 'Division',
-      nav_by_classification: 'Classification',
+      nav_by_division: 'Allocations',
+      nav_by_classification: 'Classifications',
       toggle_divide_by_strategy: 'Divide by Strategy Target',
       lbl_target: 'Target',
       lbl_drift: 'Drift',
-      nav_by_account: 'Account',
+      nav_by_account: 'Accounts',
       nav_positions: 'Positions',
       nav_strategy: 'Strategy, Divisions & Groups',
-      nav_strategy_targets: 'Strategy Targets',
+      nav_strategy_targets: 'Settings',
       btn_refresh_prices_short: 'Refresh Prices',
       mer_tax_tooltip: 'MER: {mer} · Foreign Withholding Tax Drag: {tax}',
       sub_combined_group: 'Viewing Combined Group: {name}',
@@ -106,8 +106,8 @@
       kpi_usd_cad: 'USD / CAD Exchange Rate',
       kpi_usd_cad_title: 'Click to edit USD/CAD rate',
       kpi_as_of: 'As of {date}',
-      alloc_vs_target_title: 'Portfolio Allocation vs. Strategy Target',
-      alloc_vs_target_sub: 'Visualizing actual division weights against your target strategy',
+      alloc_vs_target_title: 'Retirement Allocation vs. Strategy Target',
+      alloc_vs_target_sub: 'Retirement bucket division weights against your target strategy',
       pill_target_short: 'Target {pct}',
       bar_actual_alloc: 'Actual Allocation',
       bar_target_strat: 'Target Strategy',
@@ -121,7 +121,7 @@
       th_target_value: 'Target Value',
       th_net_trade_needed: 'Net Trade Needed',
       th_simulated_after: 'Simulated After',
-      holdings_by_division: 'Holdings by Division',
+      holdings_by_division: 'Holdings by Division (Retirement Bucket)',
       holdings_by_division_sub: '',
       holdings_by_classification: 'Holdings by Classification',
       holdings_by_classification_sub: 'Positions grouped by account classification (RRSP, TFSA, Non-Registered, RESP).',
@@ -196,7 +196,7 @@
       opt_none: '— None —',
       opt_all_mapped: 'All Mapped ({count})',
       strat_editor_title: 'Target Allocation Strategy ({name})',
-      strat_editor_sub: 'Configure how categories and regional divisions are weighted',
+      strat_editor_sub: 'Configure how categories and regional divisions are weighted for the Retirement bucket',
       lbl_mode: 'Mode:',
       strat_select_portfolio_msg: 'Select a portfolio to view strategy targets.',
       strat_ph_new_div: 'New division name (e.g. Canada, US, Europe)...',
@@ -401,15 +401,15 @@
       nav_securities_tax: 'FNB et fiscalité',
       nav_config: 'Configuration',
       nav_overview: 'Aperçu de la répartition',
-      nav_by_division: 'Division',
-      nav_by_classification: 'Classification',
+      nav_by_division: 'Répartition',
+      nav_by_classification: 'Classifications',
       toggle_divide_by_strategy: 'Diviser selon la stratégie cible',
       lbl_target: 'Cible',
       lbl_drift: 'Écart',
-      nav_by_account: 'Compte',
+      nav_by_account: 'Comptes',
       nav_positions: 'Positions',
       nav_strategy: 'Stratégie, divisions et groupes',
-      nav_strategy_targets: 'Cibles de stratégie',
+      nav_strategy_targets: 'Paramètres',
       btn_refresh_prices_short: 'Actualiser les cours',
       mer_tax_tooltip: 'RFG : {mer} · Retenue d’impôt étrangère : {tax}',
       sub_combined_group: 'Groupe combiné affiché : {name}',
@@ -464,8 +464,8 @@
       kpi_usd_cad: 'Taux de change USD / CAD',
       kpi_usd_cad_title: 'Cliquer pour modifier le taux USD/CAD',
       kpi_as_of: 'En date du {date}',
-      alloc_vs_target_title: 'Répartition du portefeuille c. cible stratégique',
-      alloc_vs_target_sub: 'Pondérations réelles par division comparées à votre stratégie cible',
+      alloc_vs_target_title: 'Répartition Retraite c. cible stratégique',
+      alloc_vs_target_sub: 'Pondérations par division du compartiment Retraite comparées à votre stratégie cible',
       pill_target_short: 'Cible {pct}',
       bar_actual_alloc: 'Répartition actuelle',
       bar_target_strat: 'Stratégie cible',
@@ -479,7 +479,7 @@
       th_target_value: 'Valeur cible',
       th_net_trade_needed: 'Transaction nette requise',
       th_simulated_after: 'Après simulation',
-      holdings_by_division: 'Positions par division',
+      holdings_by_division: 'Positions par division (compartiment Retraite)',
       holdings_by_division_sub: '',
       holdings_by_classification: 'Positions par classification',
       holdings_by_classification_sub: 'Positions regroupées selon la classification fiscale du compte (REER, CELI, Non enregistré, REEE).',
@@ -554,7 +554,7 @@
       opt_none: '— Aucune —',
       opt_all_mapped: 'Toutes associées ({count})',
       strat_editor_title: 'Stratégie de répartition cible ({name})',
-      strat_editor_sub: 'Configurez la pondération des catégories d’actifs et des divisions régionales',
+      strat_editor_sub: 'Configurez la pondération des catégories et divisions régionales du compartiment Retraite',
       lbl_mode: 'Mode :',
       strat_select_portfolio_msg: 'Sélectionnez un portefeuille pour afficher les cibles de stratégie.',
       strat_ph_new_div: 'Nom de la nouvelle division (ex. Canada, É.-U., Europe)...',
@@ -882,8 +882,8 @@
     if (route.portfolioId) selectedPortfolio = route.portfolioId;
     const searchParams = new URLSearchParams(window.location.search);
     const initialSubtab = searchParams.get('tab') || (window.location.hash ? window.location.hash.replace('#', '') : '');
-    if (['account', 'division', 'classification', 'strategy'].includes(initialSubtab)) {
-      currentPortfolioSubTab = initialSubtab;
+    if (initialSubtab) {
+      currentPortfolioSubTab = normalizePortfolioSubtab(initialSubtab);
     }
     if (searchParams.get('rebalance') === '1' || searchParams.get('rebalance') === 'true') {
       rebalanceMode = true;
@@ -898,13 +898,8 @@
       if (cfg.theme_mode) {
         applyThemeMode(cfg.theme_mode);
       }
-      applySubtabOrder(cfg.subtab_order);
-      initDraggableSubtabs();
-      if (!['account', 'division', 'classification', 'strategy'].includes(initialSubtab)) {
-        const firstBtn = document.querySelector('#portfolioSubNav .port-subtab');
-        if (firstBtn && firstBtn.dataset.subtab) {
-          currentPortfolioSubTab = firstBtn.dataset.subtab;
-        }
+      if (!['summary', 'account', 'allocations', 'bucket', 'transactions', 'acb', 'strategy'].includes(currentPortfolioSubTab)) {
+        currentPortfolioSubTab = 'summary';
       }
     } catch (e) {
       console.warn('Unable to pre-load app state config:', e);
@@ -951,8 +946,8 @@
       const prevPortfolio = selectedPortfolio;
       const searchParams = new URLSearchParams(window.location.search);
       const urlSubtab = searchParams.get('tab') || (window.location.hash ? window.location.hash.replace('#', '') : '');
-      if (['summary', 'division', 'account', 'classification', 'bucket', 'strategy'].includes(urlSubtab)) {
-        currentPortfolioSubTab = urlSubtab;
+      if (urlSubtab) {
+        currentPortfolioSubTab = normalizePortfolioSubtab(urlSubtab);
       }
       if (r.view && r.view !== 'root') currentMainView = r.view;
       if (r.portfolioId) selectedPortfolio = r.portfolioId;
@@ -1067,14 +1062,21 @@
     return '/';
   }
 
+  function normalizePortfolioSubtab(tab) {
+    if (!tab || tab === 'overview' || tab === 'division') return 'allocations';
+    if (tab === 'classification') return 'summary';
+    if (['summary', 'account', 'allocations', 'bucket', 'transactions', 'acb', 'strategy'].includes(tab)) return tab;
+    return 'summary';
+  }
+
   function applyRouteFromLocation(pushHistory = false) {
     const route = routeFromLocation();
     if (route.view && route.view !== 'root') currentMainView = route.view;
     if (route.portfolioId) selectedPortfolio = route.portfolioId;
     const searchParams = new URLSearchParams(window.location.search);
     const initialSubtab = searchParams.get('tab') || (window.location.hash ? window.location.hash.replace('#', '') : '');
-    if (['summary', 'account', 'division', 'classification', 'bucket', 'strategy'].includes(initialSubtab)) {
-      currentPortfolioSubTab = initialSubtab;
+    if (initialSubtab) {
+      currentPortfolioSubTab = normalizePortfolioSubtab(initialSubtab);
     }
     if (searchParams.get('rebalance') === '1' || searchParams.get('rebalance') === 'true') {
       rebalanceMode = true;
@@ -1211,8 +1213,8 @@
         : esc(currentEval.portfolio_name);
     }
 
-    // Rebalance switch state (ONLY shown and works on By Division page)
-    const isDivisionTab = (currentMainView === 'portfolio' || !currentMainView) && currentPortfolioSubTab === 'division';
+    // Rebalance switch state (ONLY shown and works on Allocations page)
+    const isDivisionTab = (currentMainView === 'portfolio' || !currentMainView) && currentPortfolioSubTab === 'allocations';
     const rebalToggle = document.getElementById('rebalanceToggle');
     if (rebalToggle) {
       rebalToggle.style.display = isDivisionTab ? 'inline-flex' : 'none';
@@ -1522,9 +1524,9 @@
   }
 
   function applySubtabOrder(order) {
-    const nav = document.getElementById('portfolioSubNav');
-    if (!nav) return;
-    const buttons = Array.from(nav.querySelectorAll('.port-subtab'));
+    const group = document.getElementById('subnavHoldingsGroup');
+    if (!group) return;
+    const buttons = Array.from(group.querySelectorAll('.port-subtab'));
     if (!Array.isArray(order) || order.length === 0) return;
 
     const byKey = {};
@@ -1535,29 +1537,29 @@
     order.forEach(key => {
       const btn = byKey[key];
       if (btn && !used.has(key)) {
-        nav.appendChild(btn);
+        group.appendChild(btn);
         used.add(key);
       }
     });
     buttons.forEach(btn => {
       const key = btn.dataset.subtab;
       if (key && !used.has(key)) {
-        nav.appendChild(btn);
+        group.appendChild(btn);
         used.add(key);
       }
     });
   }
 
   function initDraggableSubtabs() {
-    const nav = document.getElementById('portfolioSubNav');
-    if (!nav || nav.dataset.dragBound === 'true') return;
-    nav.dataset.dragBound = 'true';
+    const group = document.getElementById('subnavHoldingsGroup');
+    if (!group || group.dataset.dragBound === 'true') return;
+    group.dataset.dragBound = 'true';
 
     let draggedBtn = null;
-    nav.querySelectorAll('.port-subtab').forEach(btn => {
+    group.querySelectorAll('.port-subtab').forEach(btn => {
       btn.draggable = true;
       if (!btn.title) {
-        btn.title = 'Drag to reorder tabs';
+        btn.title = 'Drag to reorder Holdings tabs';
       }
 
       btn.addEventListener('dragstart', (e) => {
@@ -1571,7 +1573,7 @@
 
       btn.addEventListener('dragend', () => {
         btn.classList.remove('dragging-subtab');
-        nav.querySelectorAll('.port-subtab').forEach(b => b.classList.remove('drag-over-left', 'drag-over-right'));
+        group.querySelectorAll('.port-subtab').forEach(b => b.classList.remove('drag-over-left', 'drag-over-right'));
         draggedBtn = null;
       });
 
@@ -1581,7 +1583,7 @@
         if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
         const rect = btn.getBoundingClientRect();
         const left = e.clientX < rect.left + rect.width / 2;
-        nav.querySelectorAll('.port-subtab').forEach(b => b.classList.remove('drag-over-left', 'drag-over-right'));
+        group.querySelectorAll('.port-subtab').forEach(b => b.classList.remove('drag-over-left', 'drag-over-right'));
         btn.classList.add(left ? 'drag-over-left' : 'drag-over-right');
       });
 
@@ -1594,10 +1596,10 @@
         e.preventDefault();
         const rect = btn.getBoundingClientRect();
         const left = e.clientX < rect.left + rect.width / 2;
-        nav.querySelectorAll('.port-subtab').forEach(b => b.classList.remove('drag-over-left', 'drag-over-right'));
-        nav.insertBefore(draggedBtn, left ? btn : btn.nextSibling);
+        group.querySelectorAll('.port-subtab').forEach(b => b.classList.remove('drag-over-left', 'drag-over-right'));
+        group.insertBefore(draggedBtn, left ? btn : btn.nextSibling);
 
-        const newOrder = Array.from(nav.querySelectorAll('.port-subtab'))
+        const newOrder = Array.from(group.querySelectorAll('.port-subtab'))
           .map(b => b.dataset.subtab)
           .filter(Boolean);
 
@@ -1620,8 +1622,7 @@
   }
 
   function switchPortfolioSubTab(subtab, pushHistory = true) {
-    if (subtab === 'overview') subtab = 'summary';
-    subtab = subtab || currentPortfolioSubTab || 'summary';
+    subtab = normalizePortfolioSubtab(subtab || currentPortfolioSubTab || 'summary');
     const changed = subtab !== currentPortfolioSubTab;
     currentPortfolioSubTab = subtab;
     activeTab = subtab;
@@ -1644,11 +1645,13 @@
       if (typeof renderSummaryView === 'function') renderSummaryView();
     } else if (subtab === 'strategy') {
       renderStrategyTab();
-    } else if (subtab === 'classification') {
-      if (typeof renderClassificationView === 'function') renderClassificationView();
     } else if (subtab === 'bucket') {
       if (typeof renderBucketView === 'function') renderBucketView();
-    } else if (subtab === 'division') {
+    } else if (subtab === 'transactions') {
+      if (typeof window.refreshTransactionsTab === 'function') window.refreshTransactionsTab(selectedPortfolio);
+    } else if (subtab === 'acb') {
+      if (typeof window.refreshAcbTab === 'function') window.refreshAcbTab(selectedPortfolio);
+    } else if (subtab === 'allocations') {
       if (typeof renderDivisionView === 'function') renderDivisionView();
     } else {
       if (typeof renderAccountView === 'function') renderAccountView();
@@ -1656,16 +1659,16 @@
   }
 
   function showOnlyTabPane(id) {
-    if (id === 'tab-overview') id = 'tab-division';
+    if (id === 'tab-overview' || id === 'tab-division') id = 'tab-allocations';
     document.querySelectorAll('.tab-pane').forEach(el => {
       el.classList.toggle('hidden', el.id !== id);
     });
   }
 
   function switchTab(tab) {
-    if (tab === 'overview' || tab === 'division' || tab === 'classification' || tab === 'account' || tab === 'bucket' || tab === 'strategy') {
+    if (tab === 'overview' || tab === 'division' || tab === 'allocations' || tab === 'classification' || tab === 'account' || tab === 'bucket' || tab === 'transactions' || tab === 'acb' || tab === 'strategy') {
       switchMainView('portfolio');
-      switchPortfolioSubTab(tab);
+      switchPortfolioSubTab(normalizePortfolioSubtab(tab));
     } else if (tab === 'port-mgmt' || tab === 'portfolios') {
       switchMainView('port-mgmt');
     } else if (tab === 'securities') {
@@ -2577,7 +2580,7 @@
     const divisionHtml = buildKpiGridHtml(false);
     const divEl = document.getElementById('kpiGridDivision');
     if (divEl) divEl.innerHTML = divisionHtml;
-    ['kpiGridSummary', 'kpiGridClassification', 'kpiGridAccount', 'kpiGridBucket', 'kpiGrid'].forEach(id => {
+    ['kpiGridSummary', 'kpiGridAccount', 'kpiGridBucket', 'kpiGrid'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.innerHTML = netWorthHtml;
     });
@@ -2586,9 +2589,14 @@
   function renderOverviewTab() {
     renderSummaryView();
     renderDivisionView();
-    renderClassificationView();
     renderAccountView();
     renderBucketView();
+    if (currentPortfolioSubTab === 'transactions' && typeof window.refreshTransactionsTab === 'function') {
+      window.refreshTransactionsTab(selectedPortfolio);
+    }
+    if (currentPortfolioSubTab === 'acb' && typeof window.refreshAcbTab === 'function') {
+      window.refreshAcbTab(selectedPortfolio);
+    }
     initSortableTables();
   }
 
@@ -2611,7 +2619,7 @@
         stroke-dashoffset="${(-offset).toFixed(2)}"
         transform="rotate(-90 ${cx} ${cy})"
         style="cursor:pointer;"
-        onclick="switchPortfolioSubTab('division'); setTimeout(() => scrollToDivisionCard('${esc(d.division_name)}'), 50)">
+        onclick="switchPortfolioSubTab('allocations'); setTimeout(() => scrollToDivisionCard('${esc(d.division_name)}'), 50)">
         <title>${esc(tTerm(d.division_name))}: ${fmtMoney(d.current_value_cad)} (${fmtPct(d.current_ratio, 1)})</title>
       </circle>`;
       offset += len;
@@ -2622,7 +2630,7 @@
       <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="flex-shrink:0;">
         <circle cx="${cx}" cy="${cy}" r="${r}" fill="transparent" stroke="var(--bg-subtle)" stroke-width="${strokeW}" />
         ${segments}
-        <text x="${cx}" y="${cy - 4}" text-anchor="middle" fill="var(--text-muted)" font-size="11" font-weight="600">DIVISIONS</text>
+        <text x="${cx}" y="${cy - 4}" text-anchor="middle" fill="var(--text-muted)" font-size="11" font-weight="600">RETIREMENT</text>
         <text x="${cx}" y="${cy + 14}" text-anchor="middle" fill="var(--text)" font-size="14" font-weight="700">${esc(fmtMoney(totalVal))}</text>
       </svg>
     `;
@@ -2637,12 +2645,12 @@
     if (pieContainer) {
       const targetDivs = (e.divisions || []).filter(d => (d.target_ratio || 0) > 0);
       if (targetDivs.length === 0) {
-        pieContainer.innerHTML = `<div class="text-muted center" style="padding:20px;">No rebalanceable divisions configured.</div>`;
+        pieContainer.innerHTML = `<div class="text-muted center" style="padding:20px;">No Retirement divisions configured.</div>`;
       } else {
         const legendRows = targetDivs.map((d, i) => {
           const color = DIVISION_COLORS[i % DIVISION_COLORS.length];
           return `
-            <div onclick="switchPortfolioSubTab('division'); setTimeout(() => scrollToDivisionCard('${esc(d.division_name)}'), 50)"
+            <div onclick="switchPortfolioSubTab('allocations'); setTimeout(() => scrollToDivisionCard('${esc(d.division_name)}'), 50)"
                  style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 8px;border-radius:6px;cursor:pointer;"
                  onmouseover="this.style.background='var(--bg-subtle)'" onmouseout="this.style.background='transparent'">
               <div style="display:flex;align-items:center;gap:8px;min-width:0;">
@@ -2668,27 +2676,24 @@
     const nwPanel = document.getElementById('summaryNetWorthPanel');
     if (nwPanel) {
       const netWorth = e.has_excluded_accounts ? (e.net_worth_cad || e.current_total_cad) : e.current_total_cad;
-      const nonRebalVal = Math.max(0, netWorth - e.current_total_cad);
       const buckets = e.bucket_summaries || [];
-      const accounts = e.account_summaries || [];
 
       let bucketHtml = '';
       if (buckets.length > 0) {
         bucketHtml = `
-          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
-            <div class="kpi-label" style="margin-bottom:8px;">Buckets</div>
+          <div style="margin-top:12px;display:flex;flex-direction:column;gap:4px;">
             ${buckets.map((b, idx) => {
               const color = DIVISION_COLORS[idx % DIVISION_COLORS.length];
-              const hasGoal = b.target_amount > 0;
-              const fundedPct = hasGoal ? Math.min(100, (b.market_value_cad / b.target_amount) * 100) : 0;
+              const badge = b.is_allocation_bucket
+                ? ` <span class="pill pill-primary" style="font-size:10px;padding:1px 6px;">Allocated</span>`
+                : (b.is_default ? ` <span class="pill pill-neutral" style="font-size:10px;padding:1px 6px;">Default</span>` : '');
               return `
-                <div onclick="switchPortfolioSubTab('bucket')" style="padding:5px 6px;border-radius:6px;cursor:pointer;"
+                <div onclick="switchPortfolioSubTab('${b.is_allocation_bucket ? 'allocations' : 'bucket'}')" style="padding:5px 8px;border-radius:6px;cursor:pointer;"
                      onmouseover="this.style.background='var(--bg-subtle)'" onmouseout="this.style.background='transparent'">
-                  <div style="display:flex;justify-content:space-between;font-size:13px;">
-                    <span><span class="legend-dot" style="background:${color};display:inline-block;margin-right:6px;"></span><b>${esc(b.bucket)}</b></span>
-                    <span><b>${fmtMoney(b.market_value_cad)}</b>${hasGoal ? ` <span class="text-muted">/ ${fmtMoney(b.target_amount)} (${fundedPct.toFixed(0)}%)</span>` : ` <span class="text-muted">(${fmtPct(b.net_worth_ratio, 1)})</span>`}</span>
+                  <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;">
+                    <span><span class="legend-dot" style="background:${color};display:inline-block;margin-right:6px;"></span><b>${esc(b.bucket)}</b>${badge}</span>
+                    <span><b>${fmtMoney(b.market_value_cad)}</b> <span class="text-muted">(${fmtPct(b.net_worth_ratio, 1)})</span></span>
                   </div>
-                  ${hasGoal ? `<div class="mini-bar-track" style="margin-top:4px;margin-bottom:2px;height:5px;"><div class="mini-bar-fill" style="width:${fundedPct}%;background:${color};"></div></div>` : ''}
                 </div>
               `;
             }).join('')}
@@ -2697,21 +2702,9 @@
       }
 
       nwPanel.innerHTML = `
-        <div style="display:flex;flex-direction:column;gap:8px;font-size:13.5px;">
-          <div style="display:flex;justify-content:space-between;padding:8px 10px;background:var(--bg-subtle);border-radius:8px;">
-            <span class="text-muted">Total Net Worth</span>
-            <b style="font-size:15px;">${fmtMoney(netWorth)}</b>
-          </div>
-          <div style="display:flex;justify-content:space-between;padding:4px 10px;">
-            <span class="text-muted">Rebalanceable Investments (${accounts.filter(a => !a.excluded_from_rebalancing).length} accounts)</span>
-            <b>${fmtMoney(e.current_total_cad)}</b>
-          </div>
-          ${nonRebalVal > 0 ? `
-            <div style="display:flex;justify-content:space-between;padding:4px 10px;">
-              <span class="text-muted">Net-Worth-Only / Buckets</span>
-              <b>${fmtMoney(nonRebalVal)}</b>
-            </div>
-          ` : ''}
+        <div style="display:flex;justify-content:space-between;padding:8px 10px;background:var(--bg-subtle);border-radius:8px;font-size:13.5px;">
+          <span class="text-muted">Total Net Worth</span>
+          <b style="font-size:15px;">${fmtMoney(netWorth)}</b>
         </div>
         ${bucketHtml}
       `;
@@ -2925,7 +2918,55 @@
     return `<b title="${esc(desc || sym)}">${esc(sym)}</b>${showDesc ? `<span class="text-muted" style="font-size:12.5px;margin-left:4px;">${esc(desc)}</span>` : ''}`;
   }
 
-  function buildDivBucketOptionsHtml() {
+  function getAccountBucketName(accName) {
+    if (!accName) return '';
+    const cfgAcc = ((currentPortfolioConfig && currentPortfolioConfig.accounts) || []).find(a => a.name === accName);
+    if (cfgAcc && cfgAcc.bucket) return cfgAcc.bucket;
+    const evalAcc = ((currentEval && currentEval.account_summaries) || []).find(a => a.account === accName);
+    return (evalAcc && evalAcc.bucket) || '';
+  }
+
+  function getPortfolioBucketNames(includeOther = false) {
+    const seen = new Set(['retirement']);
+    const list = ['Retirement'];
+    const addName = (name) => {
+      const clean = String(name || '').trim();
+      if (!clean) return;
+      const lower = clean.toLowerCase();
+      if (lower === 'other' && !includeOther) return;
+      if (seen.has(lower)) return;
+      seen.add(lower);
+      list.push(clean);
+    };
+    ((currentPortfolioConfig && currentPortfolioConfig.buckets) || []).forEach(b => addName(b.name));
+    ((currentEval && currentEval.bucket_summaries) || []).forEach(b => addName(b.bucket));
+    ((currentPortfolioConfig && currentPortfolioConfig.accounts) || []).forEach(a => addName(a.bucket));
+    ((currentPortfolioConfig && currentPortfolioConfig.holdings) || []).forEach(x => addName(x.bucket));
+    if (includeOther && !seen.has('other')) {
+      list.push('Other');
+    }
+    return list;
+  }
+
+  function buildAccountBucketOptionsHtml() {
+    let opts = `<option value="">— None (fall back to Other) —</option>`;
+    getPortfolioBucketNames(false).forEach(bn => {
+      opts += `<option value="${esc(bn)}">${esc(bn)}</option>`;
+    });
+    return opts;
+  }
+
+  function buildPositionBucketOptionsHtml(accName) {
+    const accB = getAccountBucketName(accName);
+    const inheritTarget = accB || 'Other';
+    let opts = `<option value="">Inherit from Account (${esc(inheritTarget)})</option>`;
+    getPortfolioBucketNames(true).forEach(bn => {
+      opts += `<option value="${esc(bn)}">${esc(bn)}</option>`;
+    });
+    return opts;
+  }
+
+  function buildDivisionOnlyOptionsHtml() {
     const divNames = new Set();
     ((currentEval && currentEval.divisions) || []).forEach(d => divNames.add(d.division_name));
     ((appState && appState.divisions && appState.divisions.divisions) || []).forEach(d => divNames.add(d.name));
@@ -2933,47 +2974,51 @@
     Object.keys(strat.divisions || {}).forEach(dn => divNames.add(dn));
     Object.values(strat.category_splits || {}).forEach(m => Object.keys(m || {}).forEach(dn => divNames.add(dn)));
 
-    const bucketNames = new Set();
-    ((currentPortfolioConfig && currentPortfolioConfig.buckets) || []).forEach(b => { if (b.name) bucketNames.add(b.name); });
-    ((currentEval && currentEval.bucket_summaries) || []).forEach(b => { if (b.bucket) bucketNames.add(b.bucket); });
-    ((currentPortfolioConfig && currentPortfolioConfig.holdings) || []).forEach(x => { if (x.bucket) bucketNames.add(x.bucket); });
-
     let opts = `<option value="">Use Symbol Default</option>`;
-    opts += `<option value="__none__">None (No Division / Bucket)</option>`;
+    opts += `<option value="__none__">None (Exclude from Allocation)</option>`;
     Array.from(divNames).forEach(dn => {
       opts += `<option value="${esc(dn)}">${esc(tTerm(dn))}</option>`;
     });
-    if (bucketNames.size > 0) {
-      opts += `<option disabled>──────────</option>`;
-      Array.from(bucketNames).forEach(bn => {
-        opts += `<option value="bucket:${esc(bn)}">${esc(bn)}</option>`;
-      });
-    }
     return opts;
   }
 
-  function applyDivBucketToHolding(h, val) {
+  function updateModalDivisionVisibility(accName, explicitBucket, wrapId, noteId) {
+    const effBucket = (explicitBucket || getAccountBucketName(accName) || 'Other').trim().toLowerCase();
+    const isRet = effBucket === 'retirement';
+    const wrapEl = document.getElementById(wrapId);
+    const noteEl = document.getElementById(noteId);
+    if (wrapEl) wrapEl.classList.toggle('hidden', !isRet);
+    if (noteEl) noteEl.classList.toggle('hidden', isRet);
+    return isRet;
+  }
+
+  function applyPositionBucketAndDivision(h, accName, bucketVal, divVal) {
     if (!h) return;
-    if (val && val.startsWith('bucket:')) {
-      h.bucket = val.slice(7);
-      h.no_division = true;
-      delete h.division;
-      delete h.divisions;
-    } else if (val === '__none__') {
-      h.no_division = true;
-      delete h.division;
-      delete h.divisions;
+    const cleanBucket = String(bucketVal || '').trim();
+    if (cleanBucket) {
+      h.bucket = cleanBucket;
+    } else {
       delete h.bucket;
-    } else if (val) {
-      delete h.no_division;
-      h.division = val;
-      delete h.divisions;
-      delete h.bucket;
+    }
+    const effBucket = (cleanBucket || getAccountBucketName(accName) || 'Other').trim().toLowerCase();
+    if (effBucket === 'retirement') {
+      if (divVal === '__none__') {
+        h.no_division = true;
+        delete h.division;
+        delete h.divisions;
+      } else if (divVal) {
+        delete h.no_division;
+        h.division = divVal;
+        delete h.divisions;
+      } else {
+        delete h.no_division;
+        delete h.division;
+        delete h.divisions;
+      }
     } else {
       delete h.no_division;
       delete h.division;
       delete h.divisions;
-      delete h.bucket;
     }
   }
 
@@ -3041,7 +3086,7 @@
         const accCellHtml = `<b>${esc(r.account)}</b>`;
 
         return `
-          <tr data-holding-id="${esc(r.holding_id)}">
+          <tr data-holding-id="${esc(r.holding_id)}" oncontextmenu="openPositionContextMenu(event, this.dataset.holdingId)">
             <td class="left">${dragHandleHtml(isGrp)}${accCellHtml}</td>
             <td class="left">
               ${formatSecurityNameHtml(r.symbol, r.symbol_name)}
@@ -3422,8 +3467,12 @@
               ✎ Rename Account
             </button>
             <button type="button" class="card-menu-item" role="menuitem"
+                    onclick="closeAllAccountMenus(); openChangeAccountBucketModal(this.closest('.div-card').dataset.account)">
+              🏷 Change Bucket…
+            </button>
+            <button type="button" class="card-menu-item" role="menuitem"
                     onclick="closeAllAccountMenus(); toggleAccountExcludeFromRebalance(this.closest('.div-card').dataset.account)">
-              ${acc.excluded_from_rebalancing ? '✓ Include in Rebalancing' : '⊘ Exclude from Rebalancing'}
+              ${acc.excluded_from_rebalancing ? '✓ Include in Allocation' : '⊘ Exclude from Allocation'}
             </button>
             <div class="card-menu-sep"></div>
             <button type="button" class="card-menu-item danger" role="menuitem"
@@ -3439,8 +3488,6 @@
         const breakdownPills = Object.entries(h.division_breakdown || {})
           .map(([d, w]) => `<span class="pill pill-neutral" style="margin-right:4px;" title="${esc(tTerm(d))}: ${fmtPct(w, 1)} target division allocation">${esc(tTerm(d))}: ${fmtPct(w, 1)}</span>`)
           .join('');
-        const portDenom = (e.has_excluded_accounts && e.net_worth_cad > 0) ? e.net_worth_cad : e.current_total_cad;
-        const portPct = portDenom > 0 ? (h.market_value_cad / portDenom) : 0;
         const delHoldingTitle = esc(t('title_delete_position', { sym: h.symbol }) || `Delete position ${h.symbol}`);
 
         const rebalArr = h.rebalance_divisions || [];
@@ -3467,10 +3514,12 @@
           </select>
         ` : `<span>${esc(currentRebalVal || '—')}</span>`;
 
-        const bucketPillHtml = h.bucket
-          ? `<span class="pill pill-primary" style="margin-right:4px;" title="Bucket: ${esc(h.bucket)}">${esc(h.bucket)}</span>`
-          : '';
-        const divBucketCellHtml = [breakdownPills, bucketPillHtml].filter(Boolean).join('');
+        const effBucket = h.bucket || 'Other';
+        const isRetBucket = effBucket.toLowerCase() === 'retirement' && !acc.excluded_from_rebalancing;
+        const bucketBadgeHtml = h.bucket_inherited
+          ? `<span class="text-muted" style="font-size:11.5px;margin-right:4px;" title="Inherited bucket from account">↳ ${esc(effBucket)}</span>`
+          : `<span class="pill pill-primary" style="margin-right:4px;" title="Position bucket override: ${esc(effBucket)}">${esc(effBucket)}</span>`;
+        const divBucketCellHtml = [bucketBadgeHtml, isRetBucket ? breakdownPills : ''].filter(Boolean).join('');
         const secLabelHtml = !isGrp
           ? `<span class="sec-edit-link" onclick="openEditPositionModal(this.closest('tr').dataset.holdingId)" title="Edit or delete ${esc(h.symbol)}">
                ${formatSecurityNameHtml(h.symbol, h.symbol_name)}
@@ -3478,7 +3527,7 @@
           : formatSecurityNameHtml(h.symbol, h.symbol_name);
 
         return `
-          <tr data-holding-id="${esc(h.holding_id)}">
+          <tr data-holding-id="${esc(h.holding_id)}" oncontextmenu="openPositionContextMenu(event, this.dataset.holdingId)">
             <td class="left wrap-text">
               ${dragHandleHtml(isGrp)}${secLabelHtml}
             </td>
@@ -3486,12 +3535,11 @@
             <td class="text-muted">${isManualSymbol(h.symbol) ? '—' : `${fmtPrice(h.share_price)} <span style="font-size:11px;">${esc(h.currency)}</span>`}</td>
             <td>${renderEditableSharesCell(h.holding_id, h.shares, h.symbol, acc.account, isGrp)}</td>
             <td>${renderManualOrValueCell(h.holding_id, h.symbol, h.shares, h.share_price, h.market_value_cad, h.currency, isGrp)}</td>
-            <td>${fmtPct(portPct, 1)}</td>
           </tr>
         `;
       }).join('');
 
-      const colSpan = showDivMapping ? 6 : 5;
+      const colSpan = showDivMapping ? 5 : 4;
 
       const accCardKey = `acc:${acc.account}`;
       const accCollapsed = collapsedCards.has(accCardKey);
@@ -3503,7 +3551,10 @@
               <span class="card-chevron">▾</span>
               <span class="legend-dot" style="background:${color};width:12px;height:12px;"></span>
               <span style="font-size:15px;font-weight:700;">${esc(acc.account)}</span>
-              ${acc.excluded_from_rebalancing ? `<span class="pill pill-neutral" style="font-size:11px;" title="Included in Net Worth, excluded from rebalancing">Net Worth Only</span>` : ''}
+              ${acc.bucket
+                ? `<span class="pill ${acc.bucket.toLowerCase() === 'retirement' ? 'pill-primary' : 'pill-neutral'}" style="font-size:11px;" title="Account bucket">${esc(acc.bucket)}</span>`
+                : ''}
+              ${acc.excluded_from_rebalancing ? `<span class="pill pill-neutral" style="font-size:11px;" title="Included in Net Worth & Retirement total, excluded from allocation targets">Excluded from Allocation</span>` : ''}
             </div>
             <div class="div-metrics-group" style="display:flex;align-items:center;gap:12px;">
               <div><span class="text-muted">${esc(t('lbl_value_colon'))}</span> <b>${fmtMoney(acc.market_value_cad)}</b></div>
@@ -3519,7 +3570,6 @@
                 <col style="width:110px;">
                 <col style="width:105px;">
                 <col style="width:125px;">
-                <col style="width:110px;">
               </colgroup>
               <thead>
                 <tr>
@@ -3528,7 +3578,6 @@
                   <th title="Latest market quote and trading currency">${esc(t('th_price'))}</th>
                   <th title="Share quantity held in this account (editable)">${esc(t('th_shares'))}</th>
                   <th title="Total market value converted to Canadian Dollars">${esc(t('th_value_cad'))}</th>
-                  <th title="Weight of this position as a percentage of total portfolio">${esc(t('th_portfolio_pct'))}</th>
                 </tr>
               </thead>
               <tbody>${rowsHtml || `<tr><td colspan="${colSpan}" class="center text-muted" style="padding:20px;">No positions in ${esc(acc.account)}. <button class="btn btn-sm btn-primary" style="margin-left:8px;" onclick="openAddPositionModal(this.closest('.div-card').dataset.account)">+ Add Position</button></td></tr>`}</tbody>
@@ -3585,6 +3634,7 @@
         <tr>
           <th class="left">${esc(t('th_account'))}</th>
           <th class="left">${esc(t('th_classification'))}</th>
+          <th class="left">Bucket</th>
           <th>${esc(afterTaxMode() ? t('th_allocation_value') : t('th_value_cad'))}</th>
         </tr>
       </thead>
@@ -3592,6 +3642,9 @@
         ${(e.account_summaries || []).map(a => {
           const accTypeKey = (a.account_type || 'non_registered').toLowerCase();
           const clsLabel = (accTypes[accTypeKey] && accTypes[accTypeKey].name) || a.account_type || 'Non-Registered / Unregistered';
+          const bHtml = a.bucket
+            ? `<span class="pill ${a.bucket.toLowerCase() === 'retirement' ? 'pill-primary' : 'pill-neutral'}" style="font-size:11px;">${esc(a.bucket)}</span>`
+            : `<span class="text-muted">—</span>`;
           return `
           <tr data-row-key="${esc(a.account)}">
             <td class="left">
@@ -3604,7 +3657,8 @@
                 </button>
               ` : ''}
             </td>
-            <td class="left"><span class="pill pill-neutral">${esc(tTerm(clsLabel))}</span>${a.excluded_from_rebalancing ? ` <span class="pill pill-neutral" style="font-size:11px;">Net Worth Only</span>` : ''}</td>
+            <td class="left"><span class="pill pill-neutral">${esc(tTerm(clsLabel))}</span>${a.excluded_from_rebalancing ? ` <span class="pill pill-neutral" style="font-size:11px;">Excluded from Allocation</span>` : ''}</td>
+            <td class="left">${bHtml}</td>
             <td>
               <b>${fmtMoney(afterTaxMode() ? (a.allocation_value_cad ?? a.market_value_cad) : a.market_value_cad)}</b>
               ${afterTaxMode() ? `<div class="text-muted" title="${esc(t('title_gross_value', { gross: fmtMoney(a.market_value_cad) }))}" style="font-size:11px;font-weight:500;">${esc(t('lbl_value_colon'))} ${fmtMoney(a.market_value_cad)}</div>` : ''}
@@ -4252,7 +4306,7 @@
   // --- VIEW 2 / TAB 5: CONFIG ---
 
   function toggleRebalanceMode() {
-    if (currentPortfolioSubTab !== 'division') return;
+    if (currentPortfolioSubTab !== 'allocations') return;
     rebalanceMode = !rebalanceMode;
     renderTopBar();
     renderDivisionView();
@@ -4506,9 +4560,24 @@
     window._newAccountReturnToAdd = !!returnToAddPosition;
     const nameInp = document.getElementById('modalNewAccountName');
     if (nameInp) nameInp.value = '';
+    const typeSel = document.getElementById('modalNewAccountType');
+    const bucketSel = document.getElementById('modalNewAccountBucket');
+    if (bucketSel) {
+      bucketSel.innerHTML = buildAccountBucketOptionsHtml();
+      bucketSel.dataset.userEdited = '';
+      bucketSel.value = (typeSel && typeSel.value === 'rrsp') ? 'Retirement' : '';
+    }
     const modal = document.getElementById('newAccountModal');
     if (modal) modal.classList.remove('hidden');
     setTimeout(() => { if (nameInp) nameInp.focus(); }, 50);
+  }
+
+  function onNewAccountTypeChange() {
+    const typeSel = document.getElementById('modalNewAccountType');
+    const bucketSel = document.getElementById('modalNewAccountBucket');
+    if (typeSel && bucketSel && !bucketSel.dataset.userEdited) {
+      bucketSel.value = typeSel.value === 'rrsp' ? 'Retirement' : '';
+    }
   }
 
   function closeNewAccountModal() {
@@ -4526,6 +4595,7 @@
     }
     const typeSel = document.getElementById('modalNewAccountType');
     const accType = typeSel ? typeSel.value : 'non_registered';
+    const bucketVal = (document.getElementById('modalNewAccountBucket')?.value || '').trim();
 
     if (!Array.isArray(currentPortfolioConfig.accounts)) {
       currentPortfolioConfig.accounts = [];
@@ -4534,7 +4604,9 @@
       (currentPortfolioConfig.holdings || []).some(h => h.account === accName);
 
     if (!alreadyExists) {
-      currentPortfolioConfig.accounts.push({ name: accName, account_type: accType });
+      const accEntry = { name: accName, account_type: accType };
+      if (bucketVal) accEntry.bucket = bucketVal;
+      currentPortfolioConfig.accounts.push(accEntry);
       if (Array.isArray(currentPortfolioConfig.account_order) && currentPortfolioConfig.account_order.length > 0 && !currentPortfolioConfig.account_order.includes(accName)) {
         currentPortfolioConfig.account_order.push(accName);
       }
@@ -4557,6 +4629,63 @@
       window._newAccountReturnToAdd = false;
       openAddPositionModal(accName, accType);
     }
+  }
+
+  let _editingAccountBucketName = null;
+
+  function openChangeAccountBucketModal(accName) {
+    if (isGroupSelection(selectedPortfolio) || !currentPortfolioConfig || !accName) return;
+    _editingAccountBucketName = accName;
+    const titleEl = document.getElementById('modalAccBucketTitle');
+    if (titleEl) titleEl.textContent = `Bucket — ${accName}`;
+    const sel = document.getElementById('modalAccBucketSelect');
+    if (sel) {
+      sel.innerHTML = buildAccountBucketOptionsHtml();
+      sel.value = getAccountBucketName(accName) || '';
+    }
+    const modal = document.getElementById('accountBucketModal');
+    if (modal) modal.classList.remove('hidden');
+  }
+
+  function closeChangeAccountBucketModal() {
+    _editingAccountBucketName = null;
+    const modal = document.getElementById('accountBucketModal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  async function submitChangeAccountBucketModal() {
+    if (isGroupSelection(selectedPortfolio) || !currentPortfolioConfig || !_editingAccountBucketName) return;
+    const accName = _editingAccountBucketName;
+    const bucketVal = (document.getElementById('modalAccBucketSelect')?.value || '').trim();
+    if (!Array.isArray(currentPortfolioConfig.accounts)) {
+      currentPortfolioConfig.accounts = [];
+    }
+    let accObj = currentPortfolioConfig.accounts.find(a => a.name === accName);
+    if (!accObj) {
+      const evalAcc = ((currentEval && currentEval.account_summaries) || []).find(a => a.account === accName);
+      accObj = {
+        name: accName,
+        account_type: evalAcc ? evalAcc.account_type : ''
+      };
+      currentPortfolioConfig.accounts.push(accObj);
+    }
+    if (bucketVal) {
+      accObj.bucket = bucketVal;
+    } else {
+      delete accObj.bucket;
+    }
+    const res = await fetch('/api/portfolio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(currentPortfolioConfig)
+    });
+    if (!res.ok) {
+      showToast('Failed to update account bucket');
+      return;
+    }
+    closeChangeAccountBucketModal();
+    await loadStateAndEvaluate();
+    showToast(bucketVal ? `Set "${accName}" bucket to ${bucketVal}` : `Cleared bucket on "${accName}" (defaults to Other)`);
   }
 
   async function toggleAccountExcludeFromRebalance(accName) {
@@ -4585,8 +4714,8 @@
     }
     await loadStateAndEvaluate();
     showToast(accObj.exclude_from_rebalancing
-      ? `"${accName}" excluded from rebalancing (Net Worth only)`
-      : `"${accName}" included in rebalancing`);
+      ? `"${accName}" excluded from allocation targets`
+      : `"${accName}" included in allocation targets`);
   }
 
   async function deleteAccount(accName) {
@@ -4672,13 +4801,16 @@
     const manCurr = document.getElementById('modalEditPosManualCurrency');
     if (manCurr) manCurr.value = symDef.currency || 'CAD';
 
-    // Populate Division/Bucket dropdown
+    // Populate Bucket & Division dropdowns independently
+    const bucketSel = document.getElementById('modalEditPosBucket');
+    if (bucketSel) {
+      bucketSel.innerHTML = buildPositionBucketOptionsHtml(h.account);
+      bucketSel.value = h.bucket || '';
+    }
     const divSel = document.getElementById('modalEditPosDivision');
     if (divSel) {
-      divSel.innerHTML = buildDivBucketOptionsHtml();
-      if (h.bucket) {
-        divSel.value = `bucket:${h.bucket}`;
-      } else if (h.no_division) {
+      divSel.innerHTML = buildDivisionOnlyOptionsHtml();
+      if (h.no_division) {
         divSel.value = '__none__';
       } else if (h.division) {
         divSel.value = h.division;
@@ -4686,6 +4818,7 @@
         divSel.value = '';
       }
     }
+    updateModalDivisionVisibility(h.account, h.bucket || '', 'modalEditPosDivisionWrap', 'modalEditPosDivisionNote');
 
     const noteInp = document.getElementById('modalEditPosNote');
     if (noteInp) noteInp.value = h.note || '';
@@ -4693,6 +4826,23 @@
     const modal = document.getElementById('editPositionModal');
     if (modal) modal.classList.remove('hidden');
     setTimeout(() => { if (sharesInp) { sharesInp.focus(); sharesInp.select(); } }, 40);
+  }
+
+  function onModalEditPosAccountChange() {
+    const accName = (document.getElementById('modalEditPosAccount')?.value || '').trim();
+    const bucketSel = document.getElementById('modalEditPosBucket');
+    const prevBucket = bucketSel ? bucketSel.value : '';
+    if (bucketSel) {
+      bucketSel.innerHTML = buildPositionBucketOptionsHtml(accName);
+      bucketSel.value = prevBucket;
+    }
+    updateModalDivisionVisibility(accName, bucketSel ? bucketSel.value : '', 'modalEditPosDivisionWrap', 'modalEditPosDivisionNote');
+  }
+
+  function onModalEditPosBucketChange() {
+    const accName = (document.getElementById('modalEditPosAccount')?.value || '').trim();
+    const bucketVal = (document.getElementById('modalEditPosBucket')?.value || '').trim();
+    updateModalDivisionVisibility(accName, bucketVal, 'modalEditPosDivisionWrap', 'modalEditPosDivisionNote');
   }
 
   function closeEditPositionModal() {
@@ -4724,6 +4874,7 @@
     const newAcc = (document.getElementById('modalEditPosAccount')?.value || '').trim();
     const newSym = (document.getElementById('modalEditPosSymbol')?.value || '').trim();
     const rawVal = parseFloat(String(document.getElementById('modalEditPosShares')?.value || '').replace(/,/g, ''));
+    const bucketVal = document.getElementById('modalEditPosBucket')?.value || '';
     const divVal = document.getElementById('modalEditPosDivision')?.value || '';
     const noteVal = (document.getElementById('modalEditPosNote')?.value || '').trim();
     const isMan = !!document.getElementById('modalEditPosManualToggle')?.checked;
@@ -4782,7 +4933,7 @@
       }
     }
 
-    applyDivBucketToHolding(h, divVal);
+    applyPositionBucketAndDivision(h, newAcc, bucketVal, divVal);
 
     if (noteVal) {
       h.note = noteVal;
@@ -4820,11 +4971,256 @@
     await deleteHolding(targetID);
   }
 
+  function getSelectedPortfolioId() {
+    return selectedPortfolio || '';
+  }
+
+  let _contextHoldingID = null;
+
+  function openPositionContextMenu(event, holdingID) {
+    if (!holdingID || isGroupSelection(selectedPortfolio)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    closeAllAccountMenus();
+    _contextHoldingID = holdingID;
+    const menu = document.getElementById('positionContextMenu');
+    if (!menu) return;
+    menu.classList.remove('hidden');
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const w = 185;
+    const h = 84;
+    const left = Math.min(event.clientX, vw - w - 8);
+    const top = Math.min(event.clientY, vh - h - 8);
+    menu.style.left = `${Math.max(8, left)}px`;
+    menu.style.top = `${Math.max(8, top)}px`;
+  }
+
+  function closePositionContextMenu() {
+    const menu = document.getElementById('positionContextMenu');
+    if (menu) menu.classList.add('hidden');
+  }
+
+  function openAddTransactionModalFromContext() {
+    const id = _contextHoldingID;
+    closePositionContextMenu();
+    if (id) openAddTransactionModal(id);
+  }
+
+  function openEditPositionModalFromContext() {
+    const id = _contextHoldingID;
+    closePositionContextMenu();
+    if (id) openEditPositionModal(id);
+  }
+
+  let _editingTxID = null;
+
+  function openAddTransactionModal(holdingID, prefillTx) {
+    if (isGroupSelection(selectedPortfolio) || !currentPortfolioConfig) return;
+    const isEdit = !!(prefillTx && prefillTx.id);
+    _editingTxID = isEdit ? prefillTx.id : null;
+
+    const titleEl = document.getElementById('modalTxTitle');
+    if (titleEl) titleEl.textContent = isEdit ? 'Edit Transaction' : 'Add Transaction';
+    const submitBtn = document.getElementById('modalTxSubmitBtn');
+    if (submitBtn) submitBtn.textContent = isEdit ? 'Save Changes' : 'Save Transaction';
+
+    const accSel = document.getElementById('modalTxAccount');
+    const holds = currentPortfolioConfig.holdings || [];
+    const holding = holdingID ? holds.find(x => x.id === holdingID) : null;
+    const targetAccount = (prefillTx && prefillTx.account) || (holding && holding.account) || '';
+    const targetSymbol = (prefillTx && prefillTx.symbol) || (holding && holding.symbol) || '';
+
+    if (accSel) {
+      const accSet = new Set();
+      (currentPortfolioConfig.accounts || []).forEach(a => { if (a.name) accSet.add(a.name); });
+      holds.forEach(x => { if (x.account) accSet.add(x.account); });
+      ((currentEval && currentEval.account_summaries) || []).forEach(a => { if (a.account) accSet.add(a.account); });
+      if (targetAccount) accSet.add(targetAccount);
+      accSel.innerHTML = Array.from(accSet).map(a => `<option value="${esc(a)}">${esc(a)}</option>`).join('');
+      if (targetAccount) accSel.value = targetAccount;
+    }
+
+    const symInp = document.getElementById('modalTxSymbol');
+    if (symInp) symInp.value = targetSymbol;
+
+    const typeSel = document.getElementById('modalTxType');
+    if (typeSel) typeSel.value = (prefillTx && prefillTx.type) || 'buy';
+
+    const dateInp = document.getElementById('modalTxDate');
+    if (dateInp) {
+      const today = new Date().toISOString().slice(0, 10);
+      dateInp.value = (prefillTx && prefillTx.date) || today;
+    }
+
+    const sharesInp = document.getElementById('modalTxShares');
+    if (sharesInp) sharesInp.value = (prefillTx && prefillTx.shares) ? String(prefillTx.shares) : '';
+    const amtInp = document.getElementById('modalTxAmount');
+    if (amtInp) amtInp.value = (prefillTx && prefillTx.amount) ? String(prefillTx.amount) : '';
+
+    const feeInp = document.getElementById('modalTxFee');
+    if (feeInp) feeInp.value = (prefillTx && prefillTx.fee) ? String(prefillTx.fee) : '0';
+
+    const noteInp = document.getElementById('modalTxNote');
+    if (noteInp) noteInp.value = (prefillTx && prefillTx.note) || '';
+
+    const currSel = document.getElementById('modalTxCurrency');
+    const symMap = (appState && appState.symbols && appState.symbols.symbols) || {};
+    const symDef = symMap[targetSymbol] || symMap[targetSymbol.toUpperCase()] || {};
+    const defCurr = (prefillTx && prefillTx.currency) || symDef.currency || 'CAD';
+    if (currSel) currSel.value = defCurr;
+
+    const fxInp = document.getElementById('modalTxFX');
+    if (fxInp) {
+      if (prefillTx && prefillTx.fx_rate > 0) {
+        fxInp.value = String(prefillTx.fx_rate);
+      } else {
+        onTxSymbolOrCurrChange(true);
+      }
+    }
+
+    const updateWrap = document.getElementById('modalTxUpdateHoldingWrap');
+    const updateChk = document.getElementById('modalTxUpdateHolding');
+    if (updateWrap) updateWrap.classList.toggle('hidden', isEdit);
+    if (updateChk) updateChk.checked = !isEdit;
+
+    updateTxModalCalc();
+    const modal = document.getElementById('transactionModal');
+    if (modal) modal.classList.remove('hidden');
+    setTimeout(() => { if (sharesInp) { sharesInp.focus(); sharesInp.select(); } }, 50);
+  }
+
+  function closeTransactionModal() {
+    _editingTxID = null;
+    const modal = document.getElementById('transactionModal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function onTxSymbolOrCurrChange(currManuallyChanged = false) {
+    const sym = (document.getElementById('modalTxSymbol')?.value || '').trim();
+    const currSel = document.getElementById('modalTxCurrency');
+    const fxInp = document.getElementById('modalTxFX');
+    if (!currManuallyChanged && currSel && sym) {
+      const symMap = (appState && appState.symbols && appState.symbols.symbols) || {};
+      const symDef = symMap[sym] || symMap[sym.toUpperCase()];
+      if (symDef && symDef.currency) {
+        currSel.value = symDef.currency;
+      }
+    }
+    const curr = currSel ? currSel.value : 'CAD';
+    if (fxInp) {
+      fxInp.value = curr === 'USD' ? String(((currentEval && currentEval.usd_cad_rate) || 1.4).toFixed(4)) : '1.0';
+    }
+  }
+
+  function updateTxModalCalc() {
+    const txType = document.getElementById('modalTxType')?.value || 'buy';
+    const shares = parseFloat(String(document.getElementById('modalTxShares')?.value || '').replace(/,/g, '')) || 0;
+    const amount = parseFloat(String(document.getElementById('modalTxAmount')?.value || '').replace(/,/g, '')) || 0;
+    const hintEl = document.getElementById('modalTxUnitPriceHint');
+    if (hintEl) {
+      if (shares > 0 && amount > 0) {
+        hintEl.textContent = `Price / Share: ${fmtPrice(amount / shares)}`;
+      } else {
+        hintEl.textContent = 'Price / Share: —';
+      }
+    }
+    if (!_editingTxID) {
+      const updateChk = document.getElementById('modalTxUpdateHolding');
+      if (updateChk) {
+        updateChk.checked = (txType === 'buy' || txType === 'sell' || txType === 'split');
+      }
+    }
+  }
+
+  async function submitTransactionModal() {
+    if (isGroupSelection(selectedPortfolio)) return;
+    const acc = (document.getElementById('modalTxAccount')?.value || '').trim();
+    const sym = (document.getElementById('modalTxSymbol')?.value || '').trim();
+    const txType = (document.getElementById('modalTxType')?.value || 'buy').trim();
+    const dateVal = (document.getElementById('modalTxDate')?.value || '').trim();
+    const shares = parseFloat(String(document.getElementById('modalTxShares')?.value || '').replace(/,/g, '')) || 0;
+    const amount = parseFloat(String(document.getElementById('modalTxAmount')?.value || '').replace(/,/g, '')) || 0;
+    const curr = document.getElementById('modalTxCurrency')?.value || 'CAD';
+    const fxRate = parseFloat(document.getElementById('modalTxFX')?.value || '1') || 1.0;
+    const fee = parseFloat(document.getElementById('modalTxFee')?.value || '0') || 0;
+    const note = (document.getElementById('modalTxNote')?.value || '').trim();
+    const updateHolding = !!document.getElementById('modalTxUpdateHolding')?.checked;
+
+    if (!acc) {
+      alert('Please select an account.');
+      return;
+    }
+    if (!dateVal) {
+      alert('Please enter a date.');
+      return;
+    }
+    if ((txType === 'buy' || txType === 'sell') && shares <= 0) {
+      alert('Please enter shares greater than 0.');
+      return;
+    }
+    if ((txType === 'buy' || txType === 'sell' || txType === 'roc' || txType === 'reinvested_cap_gain') && amount <= 0) {
+      alert('Please enter total amount greater than 0.');
+      return;
+    }
+
+    const tx = {
+      id: _editingTxID || '',
+      date: dateVal,
+      account: acc,
+      type: txType,
+      symbol: sym,
+      shares: shares,
+      price: (shares > 0 && amount > 0) ? (amount / shares) : 0,
+      amount: amount,
+      currency: curr,
+      fx_rate: fxRate,
+      fee: fee,
+      note: note
+    };
+
+    const isEdit = !!_editingTxID;
+    const res = await fetch('/api/transactions', {
+      method: isEdit ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(isEdit
+        ? { portfolio_id: selectedPortfolio, transaction: tx }
+        : { portfolio_id: selectedPortfolio, transaction: tx, update_holding: updateHolding })
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      alert(errData.error || 'Failed to save transaction.');
+      return;
+    }
+    closeTransactionModal();
+    await loadStateAndEvaluate();
+    if (typeof window.refreshTransactionsTab === 'function') window.refreshTransactionsTab(selectedPortfolio);
+    if (typeof window.refreshAcbTab === 'function') window.refreshAcbTab(selectedPortfolio);
+    showToast(isEdit ? 'Updated transaction' : `Recorded ${txType.toUpperCase()} ${sym}`);
+  }
+
+  document.addEventListener('click', (e) => {
+    const ctx = document.getElementById('positionContextMenu');
+    if (ctx && !ctx.classList.contains('hidden') && !e.target.closest('#positionContextMenu')) {
+      closePositionContextMenu();
+    }
+  });
+  window.addEventListener('scroll', () => closePositionContextMenu(), { passive: true });
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+      closePositionContextMenu();
+      const txModal = document.getElementById('transactionModal');
+      if (txModal && !txModal.classList.contains('hidden')) {
+        closeTransactionModal();
+      }
       const editModal = document.getElementById('editPositionModal');
       if (editModal && !editModal.classList.contains('hidden')) {
         closeEditPositionModal();
+      }
+      const accBucketModal = document.getElementById('accountBucketModal');
+      if (accBucketModal && !accBucketModal.classList.contains('hidden')) {
+        closeChangeAccountBucketModal();
       }
     }
   });
@@ -4882,11 +5278,18 @@
     if (manName) manName.value = '';
     const manCurr = document.getElementById('modalAddPosManualCurrency');
     if (manCurr) manCurr.value = 'CAD';
-    const addDivBucket = document.getElementById('modalAddPosDivBucket');
-    if (addDivBucket) {
-      addDivBucket.innerHTML = buildDivBucketOptionsHtml();
-      addDivBucket.value = '';
+    const selectedAcc = accSel ? accSel.value : '';
+    const addBucketSel = document.getElementById('modalAddPosBucket');
+    if (addBucketSel) {
+      addBucketSel.innerHTML = buildPositionBucketOptionsHtml(selectedAcc);
+      addBucketSel.value = '';
     }
+    const addDivSel = document.getElementById('modalAddPosDivision');
+    if (addDivSel) {
+      addDivSel.innerHTML = buildDivisionOnlyOptionsHtml();
+      addDivSel.value = '';
+    }
+    updateModalDivisionVisibility(selectedAcc, '', 'modalAddPosDivisionWrap', 'modalAddPosDivisionNote');
     const sharesLbl = document.getElementById('modalAddPosSharesLabel');
     if (sharesLbl) sharesLbl.textContent = 'Shares / Principal';
 
@@ -4900,6 +5303,23 @@
     const modal = document.getElementById('addPositionModal');
     if (modal) modal.classList.remove('hidden');
     setTimeout(() => { if (symInp) symInp.focus(); }, 60);
+  }
+
+  function onModalAddPosAccountChange() {
+    const accName = (document.getElementById('modalAddPosAccountSelect')?.value || '').trim();
+    const bucketSel = document.getElementById('modalAddPosBucket');
+    const prevBucket = bucketSel ? bucketSel.value : '';
+    if (bucketSel) {
+      bucketSel.innerHTML = buildPositionBucketOptionsHtml(accName);
+      bucketSel.value = prevBucket;
+    }
+    updateModalDivisionVisibility(accName, bucketSel ? bucketSel.value : '', 'modalAddPosDivisionWrap', 'modalAddPosDivisionNote');
+  }
+
+  function onModalAddPosBucketChange() {
+    const accName = (document.getElementById('modalAddPosAccountSelect')?.value || '').trim();
+    const bucketVal = (document.getElementById('modalAddPosBucket')?.value || '').trim();
+    updateModalDivisionVisibility(accName, bucketVal, 'modalAddPosDivisionWrap', 'modalAddPosDivisionNote');
   }
 
   function closeAddPositionModal() {
@@ -5138,8 +5558,8 @@
     if (sharesLbl) sharesLbl.textContent = isManual ? 'Amount' : 'Shares / Principal';
     if (isManual) {
       onManualAssetInput();
-      const addDivBucket = document.getElementById('modalAddPosDivBucket');
-      if (addDivBucket && addDivBucket.value === '') addDivBucket.value = '__none__';
+      const addDivSel = document.getElementById('modalAddPosDivision');
+      if (addDivSel && addDivSel.value === '') addDivSel.value = '__none__';
     } else {
       resetModalPreviewCard();
       updateModalEstimatedValue();
@@ -5182,7 +5602,8 @@
     const rawAmountOrShares = sharesInp ? parseFloat(String(sharesInp.value).replace(/,/g, '')) : 0;
     const noteInp = document.getElementById('modalAddPosNoteInput');
     const note = noteInp ? noteInp.value.trim() : '';
-    const divBucketVal = document.getElementById('modalAddPosDivBucket')?.value || '';
+    const bucketVal = document.getElementById('modalAddPosBucket')?.value || '';
+    const divVal = document.getElementById('modalAddPosDivision')?.value || '';
 
     if (!acc) {
       alert('Please select or specify an account.');
@@ -5232,7 +5653,7 @@
     const existing = currentPortfolioConfig.holdings.find(h => h.account === acc && h.symbol.toLowerCase() === sym.toLowerCase());
     if (existing) {
       existing.shares += shares;
-      if (divBucketVal) applyDivBucketToHolding(existing, divBucketVal);
+      if (bucketVal || divVal) applyPositionBucketAndDivision(existing, acc, bucketVal, divVal);
       if (note) existing.note = (existing.note ? existing.note + '; ' : '') + note;
     } else {
       const defAcc = (currentPortfolioConfig.accounts || []).find(a => a.name === acc);
@@ -5244,7 +5665,7 @@
       if (defAcc && defAcc.account_type) {
         newHold.account_type = defAcc.account_type;
       }
-      if (divBucketVal) applyDivBucketToHolding(newHold, divBucketVal);
+      if (bucketVal || divVal) applyPositionBucketAndDivision(newHold, acc, bucketVal, divVal);
       if (note) newHold.note = note;
       currentPortfolioConfig.holdings.push(newHold);
     }
@@ -5656,6 +6077,7 @@
     renderKpiGrids();
     renderBucketSummaryTable();
     renderBucketCards();
+    initSortableTables();
   }
 
   function renderBucketSummaryTable() {
@@ -5677,24 +6099,20 @@
           <th class="left">Bucket</th>
           <th>Positions</th>
           <th>Value (CAD)</th>
-          <th>Goal ($)</th>
-          <th>Funded %</th>
-          <th>Net Worth %</th>
+          <th>% of Net Worth</th>
         </tr>
       </thead>
       <tbody>
         ${buckets.map(b => {
-          const hasGoal = b.target_amount > 0;
-          const fundedPct = hasGoal ? (b.market_value_cad / b.target_amount) : 0;
-          const pillCls = hasGoal ? (fundedPct >= 1 ? 'pill-green' : 'pill-neutral') : '';
+          const badge = b.is_allocation_bucket
+            ? ` <span class="pill pill-primary" style="font-size:10.5px;">Allocated</span>`
+            : (b.is_default ? ` <span class="pill pill-neutral" style="font-size:10.5px;">Default</span>` : '');
           return `
             <tr data-row-key="${esc(b.bucket)}">
-              <td class="left">${dragHandleHtml(isGrp)}<b>${esc(b.bucket)}</b></td>
-              <td>${b.position_count}</td>
-              <td><b>${fmtMoney(b.market_value_cad)}</b></td>
-              <td class="text-muted">${hasGoal ? fmtMoney(b.target_amount) : '—'}</td>
-              <td>${hasGoal ? `<span class="pill ${pillCls}">${fmtPct(fundedPct, 0)}</span>` : '<span class="text-muted">—</span>'}</td>
-              <td>${fmtPct(b.net_worth_ratio, 1)}</td>
+              <td class="left">${dragHandleHtml(isGrp)}<b>${esc(b.bucket)}</b>${badge}</td>
+              <td data-sort="${b.position_count}">${b.position_count}</td>
+              <td data-sort="${b.market_value_cad}"><b>${fmtMoney(b.market_value_cad)}</b></td>
+              <td class="text-muted" data-sort="${b.net_worth_ratio}">${fmtPct(b.net_worth_ratio, 1)}</td>
             </tr>
           `;
         }).join('')}
@@ -5714,17 +6132,13 @@
     }
 
     const isGrp = isGroupSelection(selectedPortfolio);
-    const portDenom = (e.has_excluded_accounts && e.net_worth_cad > 0) ? e.net_worth_cad : e.current_total_cad;
 
     container.innerHTML = buckets.map((b, idx) => {
       const color = DIVISION_COLORS[idx % DIVISION_COLORS.length];
       const cardKey = `bucket:${b.bucket}`;
       const isCollapsed = collapsedCards.has(cardKey);
-      const hasGoal = b.target_amount > 0;
-      const fundedPct = hasGoal ? (b.market_value_cad / b.target_amount) : 0;
 
       const rowsHtml = (b.holdings || []).map(h => {
-        const portPct = portDenom > 0 ? (h.market_value_cad / portDenom) : 0;
         const secLabelHtml = !isGrp
           ? `<span class="sec-edit-link" onclick="openEditPositionModal(this.closest('tr').dataset.holdingId)" title="Edit ${esc(h.symbol)}">
                ${formatSecurityNameHtml(h.symbol, h.symbol_name)}
@@ -5732,27 +6146,23 @@
           : formatSecurityNameHtml(h.symbol, h.symbol_name);
 
         return `
-          <tr data-holding-id="${esc(h.holding_id)}">
+          <tr data-holding-id="${esc(h.holding_id)}" oncontextmenu="openPositionContextMenu(event, this.dataset.holdingId)">
             <td class="left wrap-text"><b>${esc(h.account)}</b></td>
             <td class="left wrap-text">${secLabelHtml}</td>
-            <td class="text-muted">${isManualSymbol(h.symbol) ? '—' : `${fmtPrice(h.share_price)} <span style="font-size:11px;">${esc(h.currency)}</span>`}</td>
-            <td>${renderEditableSharesCell(h.holding_id, h.shares, h.symbol, h.account, isGrp)}</td>
-            <td>${renderManualOrValueCell(h.holding_id, h.symbol, h.shares, h.share_price, h.market_value_cad, h.currency, isGrp)}</td>
-            <td>${fmtPct(portPct, 1)}</td>
+            <td class="text-muted" data-sort="${isManualSymbol(h.symbol) ? 0 : h.share_price}">${isManualSymbol(h.symbol) ? '—' : `${fmtPrice(h.share_price)} <span style="font-size:11px;">${esc(h.currency)}</span>`}</td>
+            <td data-sort="${h.shares}">${renderEditableSharesCell(h.holding_id, h.shares, h.symbol, h.account, isGrp)}</td>
+            <td data-sort="${h.market_value_cad}">${renderManualOrValueCell(h.holding_id, h.symbol, h.shares, h.share_price, h.market_value_cad, h.currency, isGrp)}</td>
           </tr>
         `;
       }).join('');
 
-      const menuHtml = !isGrp ? `
+      const canRenameOrDelete = !b.is_default;
+      const menuHtml = (!isGrp && canRenameOrDelete) ? `
         <div class="card-menu-wrap">
           <button type="button" class="btn btn-sm btn-ghost card-menu-btn"
                   onclick="toggleAccountCardMenu(event, this)"
                   title="Bucket actions" aria-haspopup="true" aria-expanded="false">⋯</button>
           <div class="card-menu hidden" role="menu">
-            <button type="button" class="card-menu-item" role="menuitem"
-                    onclick="closeAllAccountMenus(); editBucketGoal(this.closest('.div-card').dataset.bucket)">
-              🎯 Set Goal Target ($)
-            </button>
             <button type="button" class="card-menu-item" role="menuitem"
                     onclick="closeAllAccountMenus(); renameBucket(this.closest('.div-card').dataset.bucket)">
               ✎ Rename Bucket
@@ -5765,6 +6175,12 @@
           </div>
         </div>
       ` : '';
+      const roleBadgeHtml = b.is_allocation_bucket
+        ? `<span class="pill pill-primary" style="font-size:11px;" title="Participates in Strategy Targets & Allocations">Allocated</span>`
+        : (b.is_default ? `<span class="pill pill-neutral" style="font-size:11px;" title="Fallback bucket for unassigned accounts and positions">Default</span>` : '');
+      const viewAllocBtnHtml = b.is_allocation_bucket
+        ? `<button type="button" class="btn btn-sm" onclick="event.stopPropagation(); switchPortfolioSubTab('allocations')" title="Open Retirement Allocations">View Allocations →</button>`
+        : '';
 
       return `
         <div class="div-card${isCollapsed ? ' collapsed' : ''}" data-card-key="${esc(cardKey)}" data-bucket="${esc(b.bucket)}">
@@ -5774,11 +6190,11 @@
               <span class="card-chevron">▾</span>
               <span class="legend-dot" style="background:${color};width:12px;height:12px;"></span>
               <span style="font-size:15px;font-weight:700;">${esc(b.bucket)}</span>
-              ${hasGoal ? `<span class="pill ${fundedPct >= 1 ? 'pill-green' : 'pill-neutral'}" style="font-size:11px;">Goal: ${fmtMoney(b.target_amount)} (${fmtPct(fundedPct, 0)})</span>` : ''}
+              ${roleBadgeHtml}
             </div>
             <div class="div-metrics-group" style="display:flex;align-items:center;gap:12px;">
+              ${viewAllocBtnHtml}
               <div><span class="text-muted">Value:</span> <b>${fmtMoney(b.market_value_cad)}</b></div>
-              <div><span class="text-muted">Net Worth:</span> <b>${fmtPct(b.net_worth_ratio, 1)}</b></div>
               ${menuHtml}
             </div>
           </div>
@@ -5790,7 +6206,6 @@
                 <col style="width:110px;">
                 <col style="width:105px;">
                 <col style="width:125px;">
-                <col style="width:110px;">
               </colgroup>
               <thead>
                 <tr>
@@ -5799,10 +6214,9 @@
                   <th>${esc(t('th_price'))}</th>
                   <th>${esc(t('th_shares'))}</th>
                   <th>${esc(t('th_value_cad'))}</th>
-                  <th>${esc(t('th_portfolio_pct'))}</th>
                 </tr>
               </thead>
-              <tbody>${rowsHtml || `<tr><td colspan="6" class="center text-muted" style="padding:20px;">No holdings assigned to ${esc(b.bucket)} yet. Assign holdings from Edit Position.</td></tr>`}</tbody>
+              <tbody>${rowsHtml || `<tr><td colspan="5" class="center text-muted" style="padding:20px;">No holdings assigned to ${esc(b.bucket)} yet. Assign holdings from Edit Position.</td></tr>`}</tbody>
             </table>
           </div>
         </div>
@@ -5821,6 +6235,10 @@
     });
     if (!name || !name.trim()) return;
     const trimmed = name.trim();
+    if (trimmed.toLowerCase() === 'retirement' || trimmed.toLowerCase() === 'other') {
+      showToast(`"${trimmed}" is a built-in bucket`);
+      return;
+    }
     if (!Array.isArray(currentPortfolioConfig.buckets)) currentPortfolioConfig.buckets = [];
     if (currentPortfolioConfig.buckets.some(b => b.name.toLowerCase() === trimmed.toLowerCase())) {
       showToast(`Bucket "${trimmed}" already exists`);
@@ -5839,39 +6257,12 @@
     showToast(`Created bucket "${trimmed}"`);
   }
 
-  async function editBucketGoal(bucketName) {
-    if (isGroupSelection(selectedPortfolio) || !currentPortfolioConfig || !bucketName) return;
-    if (!Array.isArray(currentPortfolioConfig.buckets)) currentPortfolioConfig.buckets = [];
-    let bObj = currentPortfolioConfig.buckets.find(b => b.name === bucketName);
-    const currentGoal = bObj && bObj.target_amount > 0 ? String(Math.round(bObj.target_amount)) : '';
-    const next = await openPromptModal({
-      title: `Goal Target — ${bucketName}`,
-      label: 'Dollar Goal Target (CAD, leave blank or 0 to clear)',
-      initialValue: currentGoal,
-      confirmLabel: 'Save Goal'
-    });
-    if (next === null) return;
-    const val = parseFloat(String(next).replace(/[^0-9.]/g, '')) || 0;
-    if (!bObj) {
-      bObj = { name: bucketName };
-      currentPortfolioConfig.buckets.push(bObj);
-    }
-    if (val > 0) {
-      bObj.target_amount = val;
-    } else {
-      delete bObj.target_amount;
-    }
-    await fetch('/api/portfolio', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(currentPortfolioConfig)
-    });
-    await loadStateAndEvaluate();
-    showToast(val > 0 ? `Set ${bucketName} goal to ${fmtMoney(val)}` : `Cleared goal for ${bucketName}`);
-  }
-
   async function renameBucket(oldName) {
     if (isGroupSelection(selectedPortfolio) || !currentPortfolioConfig || !oldName) return;
+    if (oldName.toLowerCase() === 'retirement' || oldName.toLowerCase() === 'other') {
+      showToast(`Cannot rename built-in bucket "${oldName}"`);
+      return;
+    }
     const next = await openPromptModal({
       title: 'Rename Bucket',
       label: 'Bucket Name',
@@ -5880,8 +6271,15 @@
     });
     if (!next || !next.trim() || next.trim() === oldName) return;
     const newName = next.trim();
+    if (newName.toLowerCase() === 'retirement' || newName.toLowerCase() === 'other') {
+      showToast(`"${newName}" is a reserved built-in bucket`);
+      return;
+    }
     (currentPortfolioConfig.buckets || []).forEach(b => {
       if (b.name === oldName) b.name = newName;
+    });
+    (currentPortfolioConfig.accounts || []).forEach(a => {
+      if (a.bucket === oldName) a.bucket = newName;
     });
     (currentPortfolioConfig.holdings || []).forEach(h => {
       if (h.bucket === oldName) h.bucket = newName;
@@ -5900,9 +6298,13 @@
 
   async function deleteBucket(bucketName) {
     if (isGroupSelection(selectedPortfolio) || !currentPortfolioConfig || !bucketName) return;
+    if (bucketName.toLowerCase() === 'retirement' || bucketName.toLowerCase() === 'other') {
+      showToast(`Cannot delete built-in bucket "${bucketName}"`);
+      return;
+    }
     const ok = await openConfirmModal({
       title: 'Delete Bucket',
-      message: `Remove bucket "${bucketName}"? (Holdings remain in their accounts with no bucket.)`,
+      message: `Remove bucket "${bucketName}"? (Accounts and positions using it will fall back cleanly.)`,
       confirmLabel: 'Delete',
       danger: true
     });
@@ -5910,6 +6312,9 @@
     if (Array.isArray(currentPortfolioConfig.buckets)) {
       currentPortfolioConfig.buckets = currentPortfolioConfig.buckets.filter(b => b.name !== bucketName);
     }
+    (currentPortfolioConfig.accounts || []).forEach(a => {
+      if (a.bucket === bucketName) delete a.bucket;
+    });
     (currentPortfolioConfig.holdings || []).forEach(h => {
       if (h.bucket === bucketName) delete h.bucket;
     });
@@ -7076,7 +7481,7 @@ if (typeof window !== 'undefined') {
     applyAdHocCombine,
     applyCalculatedTrades,
     applyColWidthAcrossTables,
-    applyDivBucketToHolding,
+    applyPositionBucketAndDivision,
     applyRouteFromLocation,
     applyStaticI18n,
     applyStratNotesEdit,
@@ -7088,17 +7493,22 @@ if (typeof window !== 'undefined') {
     backupPortfolio,
     browseFolderForModal,
     browseFolderForPaths,
-    buildDivBucketOptionsHtml,
+    buildAccountBucketOptionsHtml,
+    buildDivisionOnlyOptionsHtml,
     buildDivisionPieSvg,
     buildKpiGridHtml,
+    buildPositionBucketOptionsHtml,
     changeLanguage,
     closeAddPositionModal,
     closeAllAccountMenus,
     closeAppDialog,
+    closeChangeAccountBucketModal,
     closeEditPositionModal,
     closeNewAccountModal,
     closeNewPortfolioModal,
     closePortfolioSwitcher,
+    closePositionContextMenu,
+    closeTransactionModal,
     commitProposedTrades,
     confirmAppDialog,
     createNewPortfolio,
@@ -7111,7 +7521,6 @@ if (typeof window !== 'undefined') {
     deletePortfolioGroup,
     deselectAllGroupPorts,
     dragHandleHtml,
-    editBucketGoal,
     esc,
     extractCellSortValue,
     filterGroupPortfolios,
@@ -7123,8 +7532,11 @@ if (typeof window !== 'undefined') {
     fmtSignedNum,
     fmtSignedPct,
     formatSecurityNameHtml,
+    getAccountBucketName,
     getLastPortfolio,
     getNormalizedColKey,
+    getPortfolioBucketNames,
+    getSelectedPortfolioId,
     getUrlForRoute,
     goPortfolioView,
     grossCurrentTotal,
@@ -7146,13 +7558,19 @@ if (typeof window !== 'undefined') {
     loadStateAndEvaluate,
     lookupSymbolDetails,
     moveHoldingToAccount,
+    normalizePortfolioSubtab,
     notifyUserActivity,
     onAfterTaxRateChange,
     onDivCardHeaderClick,
     onFilterChange,
     onManualAssetInput,
+    onModalAddPosAccountChange,
+    onModalAddPosBucketChange,
+    onModalEditPosAccountChange,
+    onModalEditPosBucketChange,
     onModalSymbolInput,
     onModalSymbolKeyDown,
+    onNewAccountTypeChange,
     onQuickChangeAccount,
     onQuickChangeAccountType,
     onQuickChangeManualAmount,
@@ -7164,15 +7582,21 @@ if (typeof window !== 'undefined') {
     onToggleEditManualMode,
     onToggleManualAssetMode,
     onToggleRebalanceTarget,
+    onTxSymbolOrCurrChange,
     openAddPositionModal,
+    openAddTransactionModal,
+    openAddTransactionModalFromContext,
+    openChangeAccountBucketModal,
     openConfirmModal,
     openDisclaimerModal,
     openEditPositionModal,
+    openEditPositionModalFromContext,
     openInfoModal,
     openNewAccountModal,
     openNewBucketModal,
     openNewPortfolioModal,
     openPortfolioSelection,
+    openPositionContextMenu,
     openPromptModal,
     openReportIssue,
     orderedKeys,
@@ -7250,8 +7674,10 @@ if (typeof window !== 'undefined') {
     showToast,
     storeSlugify,
     submitAddPositionModal,
+    submitChangeAccountBucketModal,
     submitEditPositionModal,
     submitNewAccountModal,
+    submitTransactionModal,
     switchMainView,
     switchPortfolioSubTab,
     switchTab,
@@ -7274,8 +7700,10 @@ if (typeof window !== 'undefined') {
     updateAmountToBuy,
     updateCollapseAllButton,
     updateGroupSelectionBadge,
+    updateModalDivisionVisibility,
     updateModalEstimatedValue,
     updateStratTargetSum,
+    updateTxModalCalc,
     updateUSDCADRate,
     waitForRestartAndReload
   });

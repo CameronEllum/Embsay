@@ -1,9 +1,9 @@
-<div id="tab-division" class="tab-pane hidden">
+<div id="tab-allocations" class="tab-pane hidden">
   <div class="card alloc-section">
     <div class="section-header">
       <div>
-        <h2 class="section-title" data-i18n="alloc_vs_target_title">Portfolio Allocation vs. Strategy Target</h2>
-        <div class="text-muted" style="font-size:12.5px;" data-i18n="alloc_vs_target_sub">Visualizing actual division weights against your target strategy</div>
+        <h2 class="section-title" data-i18n="alloc_vs_target_title">Retirement Allocation vs. Strategy Target</h2>
+        <div class="text-muted" style="font-size:12.5px;" data-i18n="alloc_vs_target_sub">Retirement bucket division weights against your target strategy</div>
       </div>
       <div id="categoryPillsSummary" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
     </div>
@@ -17,7 +17,7 @@
 
   <div class="section-header" style="margin-top:28px;">
     <div>
-      <h2 class="section-title" id="holdingsGroupTitle" data-i18n="holdings_by_division">Holdings by Division</h2>
+      <h2 class="section-title" id="holdingsGroupTitle" data-i18n="holdings_by_division">Holdings by Division (Retirement Bucket)</h2>
       <div class="text-muted" style="font-size:12.5px;" id="holdingsGroupSubtitle" data-i18n="holdings_by_division_sub"></div>
     </div>
     <div>

@@ -50,6 +50,10 @@ account_types:
 	_ = os.WriteFile(filepath.Join(configDir, "price_cache.yaml"), []byte("fx_rates: {}\nprices: {}\n"), 0644)
 
 	_ = os.WriteFile(filepath.Join(portsDir, "demo.yaml"), []byte(`name: "Auto Lookup Demo"
+accounts:
+  - name: TFSA
+    account_type: tfsa
+    bucket: Retirement
 strategy:
   mode: flat
   divisions:

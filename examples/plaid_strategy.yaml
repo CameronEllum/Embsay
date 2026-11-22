@@ -2,6 +2,18 @@ name: 'Demo: $1M Plaid Strategy (70/30 After-Tax)'
 amount_to_buy: 0
 after_tax_allocation: true
 rrsp_withdrawal_tax_rate: 0.35
+accounts:
+  - name: TFSA
+    account_type: tfsa
+    bucket: Retirement
+  - name: RRSP
+    account_type: rrsp
+    bucket: Retirement
+  - name: Margin
+    account_type: non_registered
+    bucket: Retirement
+buckets:
+  - name: Retirement
 strategy:
   mode: hierarchical
   categories:

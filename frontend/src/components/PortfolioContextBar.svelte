@@ -11,11 +11,12 @@
       <div class="port-subnav-divider"></div>
       <div id="portfolioSubNav" class="portfolio-subnav">
         <button class="port-subtab active" data-subtab="summary" onclick={() => window.switchPortfolioSubTab('summary')}>Summary</button>
-        <button class="port-subtab" data-subtab="division" onclick={() => window.switchPortfolioSubTab('division')} data-i18n="nav_by_division">Division</button>
-        <button class="port-subtab" data-subtab="account" onclick={() => window.switchPortfolioSubTab('account')} data-i18n="nav_by_account">Account</button>
-        <button class="port-subtab" data-subtab="classification" onclick={() => window.switchPortfolioSubTab('classification')} data-i18n="nav_by_classification">Classification</button>
-        <button class="port-subtab" data-subtab="bucket" onclick={() => window.switchPortfolioSubTab('bucket')}>Bucket</button>
-        <button class="port-subtab" data-subtab="strategy" onclick={() => window.switchPortfolioSubTab('strategy')} data-i18n="nav_strategy_targets">Strategy Targets</button>
+        <button class="port-subtab" data-subtab="account" onclick={() => window.switchPortfolioSubTab('account')} data-i18n="nav_by_account">Accounts</button>
+        <button class="port-subtab" data-subtab="allocations" onclick={() => window.switchPortfolioSubTab('allocations')} data-i18n="nav_by_division">Allocations</button>
+        <button class="port-subtab" data-subtab="bucket" onclick={() => window.switchPortfolioSubTab('bucket')}>Buckets</button>
+        <button class="port-subtab" data-subtab="transactions" onclick={() => window.switchPortfolioSubTab('transactions')}>Transactions</button>
+        <button class="port-subtab" data-subtab="acb" onclick={() => window.switchPortfolioSubTab('acb')}>ACB</button>
+        <button class="port-subtab" data-subtab="strategy" onclick={() => window.switchPortfolioSubTab('strategy')} data-i18n="nav_strategy_targets">Settings</button>
       </div>
     </div>
 

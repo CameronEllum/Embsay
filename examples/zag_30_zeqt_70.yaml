@@ -1,6 +1,18 @@
 name: 'Demo: 30% Bonds (ZAG/ZDB) / 70% ZEQT'
 amount_to_buy: 0
 rrsp_withdrawal_tax_rate: 0.3
+accounts:
+  - name: Margin
+    account_type: non_registered
+    bucket: Retirement
+  - name: RRSP
+    account_type: rrsp
+    bucket: Retirement
+  - name: TFSA
+    account_type: tfsa
+    bucket: Retirement
+buckets:
+  - name: Retirement
 strategy:
   mode: flat
   divisions:

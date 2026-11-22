@@ -5,8 +5,8 @@
     <div class="card">
       <div class="section-header">
         <div>
-          <h3 class="section-title">Division Worth</h3>
-          <div class="text-muted" style="font-size:12.5px;">Rebalanceable investments by division</div>
+          <h3 class="section-title">Retirement Allocations</h3>
+          <div class="text-muted" style="font-size:12.5px;">Retirement bucket investments by division</div>
         </div>
       </div>
       <div id="summaryDivisionPieContainer" style="margin-top:10px;"></div>
@@ -16,7 +16,7 @@
       <div class="section-header">
         <div>
           <h3 class="section-title">Net Worth &amp; Buckets</h3>
-          <div class="text-muted" style="font-size:12.5px;">Total net worth across investments, savings, and goals</div>
+          <div class="text-muted" style="font-size:12.5px;">Total net worth across all buckets</div>
         </div>
       </div>
       <div id="summaryNetWorthPanel" style="margin-top:10px;"></div>

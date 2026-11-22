@@ -12,18 +12,43 @@
       <label for="modalNewAccountName" class="kpi-label" style="display:block;margin-bottom:4px;">Account Name</label>
       <input type="text" id="modalNewAccountName" class="input-clean" style="width:100%;" placeholder="e.g. TFSA, RRSP, Margin" onkeydown={(e) => { if (e.key === 'Enter') window.submitNewAccountModal(); }} />
     </div>
-    <div style="margin-bottom:18px;">
+    <div style="margin-bottom:14px;">
       <label for="modalNewAccountType" class="kpi-label" style="display:block;margin-bottom:4px;">Classification / Account Type</label>
-      <select id="modalNewAccountType" class="select-clean" style="width:100%;">
+      <select id="modalNewAccountType" class="select-clean" style="width:100%;" onchange={() => window.onNewAccountTypeChange()}>
         <option value="rrsp">RRSP (Registered Retirement)</option>
         <option value="tfsa">TFSA (Tax-Free Savings)</option>
         <option value="non_registered">Non-Registered / Margin</option>
         <option value="resp">RESP (Education Savings)</option>
       </select>
     </div>
+    <div style="margin-bottom:18px;">
+      <label for="modalNewAccountBucket" class="kpi-label" style="display:block;margin-bottom:4px;">Bucket (Optional)</label>
+      <select id="modalNewAccountBucket" class="select-clean" style="width:100%;" onchange={(e) => { e.currentTarget.dataset.userEdited = 'true'; }}></select>
+    </div>
     <div style="display:flex;justify-content:flex-end;gap:8px;">
       <button class="btn" onclick={() => window.closeNewAccountModal()} title="Cancel and close dialog">Cancel</button>
       <button class="btn btn-primary" onclick={() => window.submitNewAccountModal()} title="Create this account in the portfolio">Create Account</button>
+    </div>
+  </div>
+</div>
+
+<!-- CHANGE ACCOUNT BUCKET MODAL -->
+<div id="accountBucketModal" class="modal-backdrop hidden" role="presentation" onclick={(e) => { if (e.target === e.currentTarget) window.closeChangeAccountBucketModal(); }}>
+  <div class="modal-card" style="max-width:420px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <h3 class="section-title" style="margin:0;" id="modalAccBucketTitle">Change Account Bucket</h3>
+      <button type="button" class="btn btn-ghost" onclick={() => window.closeChangeAccountBucketModal()} style="font-size:16px;padding:2px 8px;" title="Close dialog (Esc)">✕</button>
+    </div>
+    <p class="text-muted" style="margin-top:0;margin-bottom:14px;font-size:13px;">
+      Positions in this account inherit this bucket unless individually overridden (unassigned positions fall back to Other).
+    </p>
+    <div style="margin-bottom:18px;">
+      <label for="modalAccBucketSelect" class="kpi-label" style="display:block;margin-bottom:4px;">Bucket</label>
+      <select id="modalAccBucketSelect" class="select-clean" style="width:100%;"></select>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button type="button" class="btn" onclick={() => window.closeChangeAccountBucketModal()}>Cancel</button>
+      <button type="button" class="btn btn-primary" onclick={() => window.submitChangeAccountBucketModal()}>Save Bucket</button>
     </div>
   </div>
 </div>
@@ -44,7 +69,7 @@
         <label for="modalAddPosAccountSelect" class="kpi-label">Account</label>
         <button type="button" class="btn-link" onclick={() => window.openNewAccountModal(true)} style="font-size:11.5px;color:var(--primary);background:none;border:none;cursor:pointer;padding:0;">+ New Account</button>
       </div>
-      <select id="modalAddPosAccountSelect" class="select-clean" style="width:100%;"></select>
+      <select id="modalAddPosAccountSelect" class="select-clean" style="width:100%;" onchange={() => window.onModalAddPosAccountChange()}></select>
     </div>
 
     <div style="margin-bottom:14px;position:relative;">
@@ -99,9 +124,21 @@
       </div>
     </div>
 
-    <div style="margin-bottom:14px;">
-      <label for="modalAddPosDivBucket" class="kpi-label" style="display:block;margin-bottom:4px;">Division/Bucket</label>
-      <select id="modalAddPosDivBucket" class="select-clean" style="width:100%;"></select>
+    <div style="display:flex;gap:12px;margin-bottom:14px;">
+      <div style="flex:1;">
+        <label for="modalAddPosBucket" class="kpi-label" style="display:block;margin-bottom:4px;">Bucket</label>
+        <select id="modalAddPosBucket" class="select-clean" style="width:100%;" onchange={() => window.onModalAddPosBucketChange()}></select>
+      </div>
+      <div style="flex:1;" id="modalAddPosDivisionWrap">
+        <label for="modalAddPosDivision" class="kpi-label" style="display:block;margin-bottom:4px;">Division</label>
+        <select id="modalAddPosDivision" class="select-clean" style="width:100%;"></select>
+      </div>
+      <div style="flex:1;" id="modalAddPosDivisionNote" class="hidden">
+        <div class="kpi-label" style="margin-bottom:4px;">Division</div>
+        <div class="text-muted" style="font-size:12px;padding:7px 10px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:6px;">
+          Allocation divisions apply only to the Retirement bucket
+        </div>
+      </div>
     </div>
 
     <div style="display:flex;justify-content:flex-end;gap:8px;">
@@ -122,7 +159,7 @@
     <div style="display:flex;gap:12px;margin-bottom:10px;">
       <div style="flex:1;">
         <label for="modalEditPosAccount" class="kpi-label" style="display:block;margin-bottom:4px;">Account</label>
-        <select id="modalEditPosAccount" class="select-clean" style="width:100%;"></select>
+        <select id="modalEditPosAccount" class="select-clean" style="width:100%;" onchange={() => window.onModalEditPosAccountChange()}></select>
       </div>
       <div style="flex:1;">
         <label for="modalEditPosSymbol" class="kpi-label" style="display:block;margin-bottom:4px;">Position Name / Symbol</label>
@@ -155,8 +192,21 @@
         <input type="text" inputmode="decimal" id="modalEditPosShares" class="input-clean" style="width:100%;text-align:right;font-weight:600;" onkeydown={(e) => { if (e.key === 'Enter') window.submitEditPositionModal(); }} />
       </div>
       <div style="flex:1;">
-        <label for="modalEditPosDivision" class="kpi-label" style="display:block;margin-bottom:4px;">Division/Bucket</label>
+        <label for="modalEditPosBucket" class="kpi-label" style="display:block;margin-bottom:4px;">Bucket</label>
+        <select id="modalEditPosBucket" class="select-clean" style="width:100%;" onchange={() => window.onModalEditPosBucketChange()}></select>
+      </div>
+    </div>
+
+    <div style="margin-bottom:12px;">
+      <div id="modalEditPosDivisionWrap">
+        <label for="modalEditPosDivision" class="kpi-label" style="display:block;margin-bottom:4px;">Division</label>
         <select id="modalEditPosDivision" class="select-clean" style="width:100%;"></select>
+      </div>
+      <div id="modalEditPosDivisionNote" class="hidden">
+        <div class="kpi-label" style="margin-bottom:4px;">Division</div>
+        <div class="text-muted" style="font-size:12px;padding:7px 10px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:6px;">
+          Allocation divisions apply only to the Retirement bucket
+        </div>
       </div>
     </div>
 
@@ -221,6 +271,107 @@
       <button type="button" id="appDialogCancelBtn" class="btn" onclick={() => window.closeAppDialog(null)}>Cancel</button>
       <button type="button" id="appDialogAltBtn" class="btn hidden" onclick={() => window.closeAppDialog('alt')}>Restart</button>
       <button type="button" id="appDialogConfirmBtn" class="btn btn-primary" onclick={() => window.confirmAppDialog()}>OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- POSITION RIGHT-CLICK CONTEXT MENU -->
+<div id="positionContextMenu" class="card-menu hidden" style="position:fixed;right:auto;bottom:auto;width:max-content;z-index:1200;min-width:175px;" role="menu">
+  <button type="button" class="card-menu-item" role="menuitem" onclick={() => window.openAddTransactionModalFromContext()}>
+    + Add Transaction
+  </button>
+  <button type="button" class="card-menu-item" role="menuitem" onclick={() => window.openEditPositionModalFromContext()}>
+    ✎ Edit Position
+  </button>
+</div>
+
+<!-- ADD / EDIT TRANSACTION MODAL -->
+<div id="transactionModal" class="modal-backdrop hidden" role="presentation" onclick={(e) => { if (e.target === e.currentTarget) window.closeTransactionModal(); }}>
+  <div class="modal-card" style="max-width:480px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <h3 id="modalTxTitle" class="section-title" style="margin:0;">Add Transaction</h3>
+      <button type="button" class="btn btn-ghost" onclick={() => window.closeTransactionModal()} style="font-size:16px;padding:2px 8px;" title="Close dialog (Esc)">✕</button>
+    </div>
+
+    <div style="display:flex;gap:12px;margin-bottom:10px;">
+      <div style="flex:1;">
+        <label for="modalTxAccount" class="kpi-label" style="display:block;margin-bottom:4px;">Account</label>
+        <select id="modalTxAccount" class="select-clean" style="width:100%;"></select>
+      </div>
+      <div style="flex:1;">
+        <label for="modalTxSymbol" class="kpi-label" style="display:block;margin-bottom:4px;">Symbol</label>
+        <input type="text" id="modalTxSymbol" class="input-clean" style="width:100%;font-weight:700;" placeholder="e.g. XAW, ZCN" oninput={() => window.onTxSymbolOrCurrChange()} />
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px;margin-bottom:10px;">
+      <div style="flex:1;">
+        <label for="modalTxType" class="kpi-label" style="display:block;margin-bottom:4px;">Type</label>
+        <select id="modalTxType" class="select-clean" style="width:100%;" onchange={() => window.updateTxModalCalc()}>
+          <option value="buy">Buy</option>
+          <option value="sell">Sell</option>
+          <option value="dividend">Dividend</option>
+          <option value="roc">ROC (Return of Capital)</option>
+          <option value="reinvested_cap_gain">Reinvested Cap Gain</option>
+          <option value="split">Split</option>
+          <option value="deposit">Deposit</option>
+          <option value="withdrawal">Withdrawal</option>
+          <option value="interest">Interest</option>
+          <option value="fee">Fee</option>
+        </select>
+      </div>
+      <div style="flex:1;">
+        <label for="modalTxDate" class="kpi-label" style="display:block;margin-bottom:4px;">Date</label>
+        <input type="date" id="modalTxDate" class="input-clean" style="width:100%;" />
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px;margin-bottom:10px;">
+      <div style="flex:1;">
+        <label for="modalTxShares" class="kpi-label" style="display:block;margin-bottom:4px;">Shares</label>
+        <input type="text" inputmode="decimal" id="modalTxShares" class="input-clean" style="width:100%;text-align:right;font-weight:600;" placeholder="0" oninput={() => window.updateTxModalCalc()} onkeydown={(e) => { if (e.key === 'Enter') window.submitTransactionModal(); }} />
+      </div>
+      <div style="flex:1;">
+        <label for="modalTxAmount" class="kpi-label" style="display:block;margin-bottom:4px;">Total Amount</label>
+        <input type="text" inputmode="decimal" id="modalTxAmount" class="input-clean" style="width:100%;text-align:right;font-weight:600;" placeholder="0.00" oninput={() => window.updateTxModalCalc()} onkeydown={(e) => { if (e.key === 'Enter') window.submitTransactionModal(); }} />
+      </div>
+    </div>
+
+    <div id="modalTxUnitPriceHint" class="text-muted" style="font-size:12px;margin:-4px 0 10px 0;text-align:right;">
+      Price / Share: —
+    </div>
+
+    <div style="display:flex;gap:10px;margin-bottom:10px;">
+      <div style="width:90px;">
+        <label for="modalTxCurrency" class="kpi-label" style="display:block;margin-bottom:4px;">Currency</label>
+        <select id="modalTxCurrency" class="select-clean" style="width:100%;" onchange={() => window.onTxSymbolOrCurrChange(true)}>
+          <option value="CAD">CAD</option>
+          <option value="USD">USD</option>
+        </select>
+      </div>
+      <div style="flex:1;">
+        <label for="modalTxFX" class="kpi-label" style="display:block;margin-bottom:4px;">FX Rate (USD→CAD)</label>
+        <input type="text" inputmode="decimal" id="modalTxFX" class="input-clean" style="width:100%;text-align:right;" value="1.0" />
+      </div>
+      <div style="flex:1;">
+        <label for="modalTxFee" class="kpi-label" style="display:block;margin-bottom:4px;">Fee / Commission</label>
+        <input type="text" inputmode="decimal" id="modalTxFee" class="input-clean" style="width:100%;text-align:right;" value="0" />
+      </div>
+    </div>
+
+    <div style="margin-bottom:12px;">
+      <label for="modalTxNote" class="kpi-label" style="display:block;margin-bottom:4px;">Note (optional)</label>
+      <input type="text" id="modalTxNote" class="input-clean" style="width:100%;" placeholder="Optional note..." onkeydown={(e) => { if (e.key === 'Enter') window.submitTransactionModal(); }} />
+    </div>
+
+    <label id="modalTxUpdateHoldingWrap" style="display:flex;align-items:center;gap:6px;margin-bottom:16px;font-size:12.5px;color:var(--text-secondary);cursor:pointer;">
+      <input type="checkbox" id="modalTxUpdateHolding" checked />
+      <span>Update position shares in portfolio</span>
+    </label>
+
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button type="button" class="btn" onclick={() => window.closeTransactionModal()}>Cancel</button>
+      <button type="button" id="modalTxSubmitBtn" class="btn btn-primary" onclick={() => window.submitTransactionModal()}>Save Transaction</button>
     </div>
   </div>
 </div>
