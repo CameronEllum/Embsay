@@ -17,15 +17,16 @@
     return afterTaxMode() ? 'th_gross_trade_needed' : 'th_net_trade_needed';
   }
 
-  function buildKpiGridHtml() {
+  function buildKpiGridHtml(showNetWorth = true) {
     const e = currentEval;
     if (!e) return '';
 
-    // Category summary string
-    const catSummary = (e.categories || []).map(c => `${fmtPct(c.current_ratio, 1)} ${tTerm(c.category_name)}`).join(' · ');
-    const catTargetSummary = (e.categories || []).map(c => `${fmtPct(c.target_ratio, 0)} ${tTerm(c.category_name)}`).join(' / ');
+    // Category summary string (only target categories > 0%)
+    const targetCats = (e.categories || []).filter(c => (c.target_ratio || 0) > 0);
+    const catSummary = targetCats.map(c => `${fmtPct(c.current_ratio, 1)} ${tTerm(c.category_name)}`).join(' · ');
+    const catTargetSummary = targetCats.map(c => `${fmtPct(c.target_ratio, 0)} ${tTerm(c.category_name)}`).join(' / ');
 
-    const hasExcluded = !!e.has_excluded_accounts;
+    const hasExcluded = showNetWorth && !!e.has_excluded_accounts;
     const netWorthVal = hasExcluded ? (typeof e.net_worth_cad === 'number' ? e.net_worth_cad : e.current_total_cad) : e.current_total_cad;
     const heroLabel = hasExcluded
       ? (afterTaxMode() ? 'Total Net Worth (After-Tax)' : 'Total Net Worth')
@@ -74,19 +75,166 @@
   }
 
   function renderKpiGrids() {
-    const html = buildKpiGridHtml();
-    ['kpiGridDivision', 'kpiGridClassification', 'kpiGridAccount', 'kpiGridBucket', 'kpiGrid'].forEach(id => {
+    const netWorthHtml = buildKpiGridHtml(true);
+    const divisionHtml = buildKpiGridHtml(false);
+    const divEl = document.getElementById('kpiGridDivision');
+    if (divEl) divEl.innerHTML = divisionHtml;
+    ['kpiGridSummary', 'kpiGridClassification', 'kpiGridAccount', 'kpiGridBucket', 'kpiGrid'].forEach(id => {
       const el = document.getElementById(id);
-      if (el) el.innerHTML = html;
+      if (el) el.innerHTML = netWorthHtml;
     });
   }
 
   function renderOverviewTab() {
+    renderSummaryView();
     renderDivisionView();
     renderClassificationView();
     renderAccountView();
     renderBucketView();
     initSortableTables();
+  }
+
+  function buildDivisionPieSvg(divs, totalVal) {
+    const size = 180;
+    const cx = size / 2;
+    const cy = size / 2;
+    const r = 68;
+    const strokeW = 28;
+    const circ = 2 * Math.PI * r;
+    let offset = 0;
+
+    const segments = divs.map((d, i) => {
+      const color = DIVISION_COLORS[i % DIVISION_COLORS.length];
+      const frac = totalVal > 0 ? Math.max(0, d.current_value_cad / totalVal) : 0;
+      const len = frac * circ;
+      const seg = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="transparent"
+        stroke="${color}" stroke-width="${strokeW}"
+        stroke-dasharray="${len.toFixed(2)} ${circ.toFixed(2)}"
+        stroke-dashoffset="${(-offset).toFixed(2)}"
+        transform="rotate(-90 ${cx} ${cy})"
+        style="cursor:pointer;"
+        onclick="switchPortfolioSubTab('division'); setTimeout(() => scrollToDivisionCard('${esc(d.division_name)}'), 50)">
+        <title>${esc(tTerm(d.division_name))}: ${fmtMoney(d.current_value_cad)} (${fmtPct(d.current_ratio, 1)})</title>
+      </circle>`;
+      offset += len;
+      return seg;
+    }).join('');
+
+    return `
+      <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="flex-shrink:0;">
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="transparent" stroke="var(--bg-subtle)" stroke-width="${strokeW}" />
+        ${segments}
+        <text x="${cx}" y="${cy - 4}" text-anchor="middle" fill="var(--text-muted)" font-size="11" font-weight="600">DIVISIONS</text>
+        <text x="${cx}" y="${cy + 14}" text-anchor="middle" fill="var(--text)" font-size="14" font-weight="700">${esc(fmtMoney(totalVal))}</text>
+      </svg>
+    `;
+  }
+
+  function renderSummaryView() {
+    const e = currentEval;
+    if (!e) return;
+    renderKpiGrids();
+
+    const pieContainer = document.getElementById('summaryDivisionPieContainer');
+    if (pieContainer) {
+      const targetDivs = (e.divisions || []).filter(d => (d.target_ratio || 0) > 0);
+      if (targetDivs.length === 0) {
+        pieContainer.innerHTML = `<div class="text-muted center" style="padding:20px;">No rebalanceable divisions configured.</div>`;
+      } else {
+        const legendRows = targetDivs.map((d, i) => {
+          const color = DIVISION_COLORS[i % DIVISION_COLORS.length];
+          return `
+            <div onclick="switchPortfolioSubTab('division'); setTimeout(() => scrollToDivisionCard('${esc(d.division_name)}'), 50)"
+                 style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 8px;border-radius:6px;cursor:pointer;"
+                 onmouseover="this.style.background='var(--bg-subtle)'" onmouseout="this.style.background='transparent'">
+              <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+                <span class="legend-dot" style="background:${color};flex-shrink:0;"></span>
+                <span style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(tTerm(d.division_name))}</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;white-space:nowrap;font-size:13px;">
+                <b>${fmtMoney(d.current_value_cad)}</b>
+                <span class="text-muted" style="width:46px;text-align:right;">${fmtPct(d.current_ratio, 1)}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+        pieContainer.innerHTML = `
+          <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+            ${buildDivisionPieSvg(targetDivs, e.current_total_cad)}
+            <div style="flex:1;min-width:210px;">${legendRows}</div>
+          </div>
+        `;
+      }
+    }
+
+    const nwPanel = document.getElementById('summaryNetWorthPanel');
+    if (nwPanel) {
+      const netWorth = e.has_excluded_accounts ? (e.net_worth_cad || e.current_total_cad) : e.current_total_cad;
+      const nonRebalVal = Math.max(0, netWorth - e.current_total_cad);
+      const buckets = e.bucket_summaries || [];
+      const accounts = e.account_summaries || [];
+
+      let bucketHtml = '';
+      if (buckets.length > 0) {
+        bucketHtml = `
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+            <div class="kpi-label" style="margin-bottom:8px;">Buckets</div>
+            ${buckets.map((b, idx) => {
+              const color = DIVISION_COLORS[idx % DIVISION_COLORS.length];
+              const hasGoal = b.target_amount > 0;
+              const fundedPct = hasGoal ? Math.min(100, (b.market_value_cad / b.target_amount) * 100) : 0;
+              return `
+                <div onclick="switchPortfolioSubTab('bucket')" style="padding:5px 6px;border-radius:6px;cursor:pointer;"
+                     onmouseover="this.style.background='var(--bg-subtle)'" onmouseout="this.style.background='transparent'">
+                  <div style="display:flex;justify-content:space-between;font-size:13px;">
+                    <span><span class="legend-dot" style="background:${color};display:inline-block;margin-right:6px;"></span><b>${esc(b.bucket)}</b></span>
+                    <span><b>${fmtMoney(b.market_value_cad)}</b>${hasGoal ? ` <span class="text-muted">/ ${fmtMoney(b.target_amount)} (${fundedPct.toFixed(0)}%)</span>` : ` <span class="text-muted">(${fmtPct(b.net_worth_ratio, 1)})</span>`}</span>
+                  </div>
+                  ${hasGoal ? `<div class="mini-bar-track" style="margin-top:4px;margin-bottom:2px;height:5px;"><div class="mini-bar-fill" style="width:${fundedPct}%;background:${color};"></div></div>` : ''}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+      }
+
+      nwPanel.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:13.5px;">
+          <div style="display:flex;justify-content:space-between;padding:8px 10px;background:var(--bg-subtle);border-radius:8px;">
+            <span class="text-muted">Total Net Worth</span>
+            <b style="font-size:15px;">${fmtMoney(netWorth)}</b>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:4px 10px;">
+            <span class="text-muted">Rebalanceable Investments (${accounts.filter(a => !a.excluded_from_rebalancing).length} accounts)</span>
+            <b>${fmtMoney(e.current_total_cad)}</b>
+          </div>
+          ${nonRebalVal > 0 ? `
+            <div style="display:flex;justify-content:space-between;padding:4px 10px;">
+              <span class="text-muted">Net-Worth-Only / Buckets</span>
+              <b>${fmtMoney(nonRebalVal)}</b>
+            </div>
+          ` : ''}
+        </div>
+        ${bucketHtml}
+      `;
+    }
+
+    const notesEl = document.getElementById('summaryStrategyNotes');
+    if (notesEl) {
+      const notes = e.strategy_notes || [];
+      if (notes.length > 0) {
+        notesEl.innerHTML = `
+          <div class="card" style="padding:14px 18px;border-left:4px solid var(--primary);">
+            <div class="kpi-label" style="margin-bottom:6px;">Strategy Notes</div>
+            <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.6;color:var(--text-secondary);">
+              ${notes.map(n => `<li>${esc(n)}</li>`).join('')}
+            </ul>
+          </div>
+        `;
+      } else {
+        notesEl.innerHTML = '';
+      }
+    }
   }
 
   function renderDivisionTab() {

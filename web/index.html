@@ -103,10 +103,11 @@
       </div>
       <div class="port-subnav-divider"></div>
       <div id="portfolioSubNav" class="portfolio-subnav">
-        <button class="port-subtab active" data-subtab="division" onclick="switchPortfolioSubTab('division')" data-i18n="nav_by_division">By Division</button>
-        <button class="port-subtab" data-subtab="account" onclick="switchPortfolioSubTab('account')" data-i18n="nav_by_account">By Account</button>
-        <button class="port-subtab" data-subtab="classification" onclick="switchPortfolioSubTab('classification')" data-i18n="nav_by_classification">By Classification</button>
-        <button class="port-subtab" data-subtab="bucket" onclick="switchPortfolioSubTab('bucket')">By Bucket</button>
+        <button class="port-subtab active" data-subtab="summary" onclick="switchPortfolioSubTab('summary')">Summary</button>
+        <button class="port-subtab" data-subtab="division" onclick="switchPortfolioSubTab('division')" data-i18n="nav_by_division">Division</button>
+        <button class="port-subtab" data-subtab="account" onclick="switchPortfolioSubTab('account')" data-i18n="nav_by_account">Account</button>
+        <button class="port-subtab" data-subtab="classification" onclick="switchPortfolioSubTab('classification')" data-i18n="nav_by_classification">Classification</button>
+        <button class="port-subtab" data-subtab="bucket" onclick="switchPortfolioSubTab('bucket')">Bucket</button>
         <button class="port-subtab" data-subtab="strategy" onclick="switchPortfolioSubTab('strategy')" data-i18n="nav_strategy_targets">Strategy Targets</button>
       </div>
     </div>
@@ -178,8 +179,37 @@
     </div>
   </div>
 
+  <!-- TAB: SUMMARY (PRIMARY OVERVIEW) -->
+  <div id="tab-summary" class="tab-pane">
+    <div class="kpi-grid" id="kpiGridSummary" style="margin-bottom:20px;"></div>
+
+    <div class="grid-2" style="margin-bottom:20px;">
+      <div class="card">
+        <div class="section-header">
+          <div>
+            <h3 class="section-title">Division Worth</h3>
+            <div class="text-muted" style="font-size:12.5px;">Rebalanceable investments by division</div>
+          </div>
+        </div>
+        <div id="summaryDivisionPieContainer" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="card">
+        <div class="section-header">
+          <div>
+            <h3 class="section-title">Net Worth &amp; Buckets</h3>
+            <div class="text-muted" style="font-size:12.5px;">Total net worth across investments, savings, and goals</div>
+          </div>
+        </div>
+        <div id="summaryNetWorthPanel" style="margin-top:10px;"></div>
+      </div>
+    </div>
+
+    <div id="summaryStrategyNotes"></div>
+  </div>
+
   <!-- TAB: BY DIVISION (VISUALIZER + REBALANCING + DIVISION HOLDINGS) -->
-  <div id="tab-division" class="tab-pane">
+  <div id="tab-division" class="tab-pane hidden">
     <!-- Visual Allocation Bar & Category/Division Summary -->
     <div class="card alloc-section">
       <div class="section-header">

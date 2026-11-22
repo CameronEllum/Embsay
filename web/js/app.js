@@ -11,9 +11,9 @@
   let selectedFilter = 'all';
   let rebalanceMode = false;
   let holdingsGrouping = 'division'; // 'division' or 'classification'
-  let activeTab = 'division';
+  let activeTab = 'summary';
   let currentMainView = 'portfolio';
-  let currentPortfolioSubTab = 'division';
+  let currentPortfolioSubTab = 'summary';
   let currentThemeMode = 'system';
   let currentLang = 'en-CA';
   let priceRefreshTimer = null;
@@ -42,12 +42,12 @@
       nav_securities_tax: 'ETFs & Tax',
       nav_config: 'Config',
       nav_overview: 'Allocation Overview',
-      nav_by_division: 'By Division',
-      nav_by_classification: 'By Classification',
+      nav_by_division: 'Division',
+      nav_by_classification: 'Classification',
       toggle_divide_by_strategy: 'Divide by Strategy Target',
       lbl_target: 'Target',
       lbl_drift: 'Drift',
-      nav_by_account: 'By Account',
+      nav_by_account: 'Account',
       nav_positions: 'Positions',
       nav_strategy: 'Strategy, Divisions & Groups',
       nav_strategy_targets: 'Strategy Targets',
@@ -400,12 +400,12 @@
       nav_securities_tax: 'FNB et fiscalité',
       nav_config: 'Configuration',
       nav_overview: 'Aperçu de la répartition',
-      nav_by_division: 'Par division',
-      nav_by_classification: 'Par catégorie',
+      nav_by_division: 'Division',
+      nav_by_classification: 'Classification',
       toggle_divide_by_strategy: 'Diviser selon la stratégie cible',
       lbl_target: 'Cible',
       lbl_drift: 'Écart',
-      nav_by_account: 'Par compte',
+      nav_by_account: 'Compte',
       nav_positions: 'Positions',
       nav_strategy: 'Stratégie, divisions et groupes',
       nav_strategy_targets: 'Cibles de stratégie',
@@ -948,6 +948,11 @@
     window.addEventListener('popstate', async () => {
       const r = routeFromLocation();
       const prevPortfolio = selectedPortfolio;
+      const searchParams = new URLSearchParams(window.location.search);
+      const urlSubtab = searchParams.get('tab') || (window.location.hash ? window.location.hash.replace('#', '') : '');
+      if (['summary', 'division', 'account', 'classification', 'bucket', 'strategy'].includes(urlSubtab)) {
+        currentPortfolioSubTab = urlSubtab;
+      }
       if (r.view && r.view !== 'root') currentMainView = r.view;
       if (r.portfolioId) selectedPortfolio = r.portfolioId;
       if (r.view === 'root') {
@@ -1049,9 +1054,11 @@
     return { view: null, portfolioId: null };
   }
 
-  function getUrlForRoute(view, portId) {
+  function getUrlForRoute(view, portId, subtab) {
     if (view === 'portfolio') {
-      return portId ? `/p/${encodeURIComponent(portId)}` : '/p';
+      const base = portId ? `/p/${encodeURIComponent(portId)}` : '/p';
+      const st = subtab || currentPortfolioSubTab || 'summary';
+      return `${base}?tab=${encodeURIComponent(st)}`;
     }
     if (view === 'port-mgmt') return '/portfolios';
     if (view === 'securities') return '/securities';
@@ -1065,7 +1072,7 @@
     if (route.portfolioId) selectedPortfolio = route.portfolioId;
     const searchParams = new URLSearchParams(window.location.search);
     const initialSubtab = searchParams.get('tab') || (window.location.hash ? window.location.hash.replace('#', '') : '');
-    if (['account', 'division', 'classification', 'strategy'].includes(initialSubtab)) {
+    if (['summary', 'account', 'division', 'classification', 'bucket', 'strategy'].includes(initialSubtab)) {
       currentPortfolioSubTab = initialSubtab;
     }
     if (searchParams.get('rebalance') === '1' || searchParams.get('rebalance') === 'true') {
@@ -1176,7 +1183,7 @@
     setLastPortfolio(targetID);
     selectedFilter = 'all';
     switchMainView('portfolio', pushHistory);
-    switchPortfolioSubTab(currentPortfolioSubTab || 'division');
+    switchPortfolioSubTab(currentPortfolioSubTab || 'summary', false);
     await loadStateAndEvaluate();
   }
 
@@ -1188,7 +1195,7 @@
     if (currentMainView !== 'portfolio') {
       switchMainView('portfolio', pushHistory);
     } else if (pushHistory) {
-      history.pushState(null, '', `/p/${encodeURIComponent(id)}`);
+      history.pushState(null, '', getUrlForRoute('portfolio', id, currentPortfolioSubTab));
     }
     await loadStateAndEvaluate();
   }
@@ -1497,7 +1504,7 @@
     }
 
     if (view === 'portfolio') {
-      switchPortfolioSubTab(currentPortfolioSubTab || 'division');
+      switchPortfolioSubTab(currentPortfolioSubTab || 'summary', false);
     } else if (view === 'port-mgmt') {
       showOnlyTabPane('tab-port-mgmt');
       renderTopBar();
@@ -1611,11 +1618,19 @@
     });
   }
 
-  function switchPortfolioSubTab(subtab) {
-    if (subtab === 'overview') subtab = 'division';
-    subtab = subtab || currentPortfolioSubTab || 'division';
+  function switchPortfolioSubTab(subtab, pushHistory = true) {
+    if (subtab === 'overview') subtab = 'summary';
+    subtab = subtab || currentPortfolioSubTab || 'summary';
+    const changed = subtab !== currentPortfolioSubTab;
     currentPortfolioSubTab = subtab;
     activeTab = subtab;
+    if (pushHistory && currentMainView === 'portfolio') {
+      const targetUrl = getUrlForRoute('portfolio', selectedPortfolio, subtab);
+      const currentFull = window.location.pathname + window.location.search;
+      if (targetUrl !== currentFull) {
+        history.pushState(null, '', targetUrl);
+      }
+    }
     document.querySelectorAll('.port-subtab').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.subtab === subtab);
     });
@@ -1624,7 +1639,9 @@
     });
     showOnlyTabPane(`tab-${subtab}`);
     renderTopBar();
-    if (subtab === 'strategy') {
+    if (subtab === 'summary') {
+      if (typeof renderSummaryView === 'function') renderSummaryView();
+    } else if (subtab === 'strategy') {
       renderStrategyTab();
     } else if (subtab === 'classification') {
       if (typeof renderClassificationView === 'function') renderClassificationView();

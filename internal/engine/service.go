@@ -1486,6 +1486,9 @@ func checkMissingETFData(holdings []model.HoldingConfig, symCfg model.SymbolsCon
 	seen := make(map[string]bool)
 
 	for _, h := range holdings {
+		if strings.TrimSpace(h.Bucket) != "" {
+			continue
+		}
 		sym := strings.TrimSpace(h.Symbol)
 		if sym == "" || seen[sym] {
 			continue
@@ -1497,7 +1500,10 @@ func checkMissingETFData(holdings []model.HoldingConfig, symCfg model.SymbolsCon
 			missingDef = append(missingDef, sym)
 			continue
 		}
-		if def.FixedPrice <= 0 && cacheCfg.Prices[sym].Price <= 0 {
+		if def.FixedPrice > 0 || strings.EqualFold(def.Exchange, "MANUAL") {
+			continue
+		}
+		if cacheCfg.Prices[sym].Price <= 0 {
 			missingPrice = append(missingPrice, sym)
 		}
 		recipeKey := def.MetadataRecipe
@@ -1507,7 +1513,7 @@ func checkMissingETFData(holdings []model.HoldingConfig, symCfg model.SymbolsCon
 		if recipeKey != "" && len(cacheCfg.SymbolMetadata[sym].Divisions) == 0 {
 			missingRatio = append(missingRatio, sym)
 		}
-		if def.FixedPrice <= 0 && !strings.EqualFold(def.AssetType, "stock") &&
+		if !strings.EqualFold(def.AssetType, "stock") &&
 			def.DefaultMER <= 0 && cacheCfg.SymbolMetadata[sym].MER <= 0 {
 			missingMER = append(missingMER, sym)
 		}
